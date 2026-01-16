@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 6
+names: ['Cyborg', 'Harley', 'Joker', 'WonderWoman', 'catwoman', 'superman']
+
+roboflow:
+  workspace: pr-comics-eio9l
+  project: cajas_figuritas
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/pr-comics-eio9l/cajas_figuritas/dataset/2
