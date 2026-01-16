@@ -2,7 +2,7 @@ from ultralytics import YOLO
 import cv2
 import write_xml as w
 # Cargar el modelo YOLO
-model = YOLO('yoloCajas1.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
+model = YOLO('yoloHarley.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
 
 # Abrir la cámara
 cap = cv2.VideoCapture(0)
