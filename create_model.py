@@ -1,5 +1,5 @@
 from ultralytics import YOLO
 
-model = YOLO("yolo11n.pt")
+model = YOLO("yolo26m.pt")
 
-model.train(data="harley_dataset.yaml", epochs=20)
+model.train(data="harley_dataset.yaml", epochs=20, batch=8)
