@@ -2,4 +2,4 @@ from ultralytics import YOLO
 
 model = YOLO("yolo26m.pt")
 
-model.train(data="harley_dataset.yaml", epochs=20, batch=8)
+model.train(data="figuritas_dataset.yaml", epochs=20, batch=8)
