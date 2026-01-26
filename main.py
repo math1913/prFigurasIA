@@ -1,13 +1,17 @@
 from ultralytics import YOLO
 import cv2
 import write_xml as w
+import torch
 # Cargar el modelo YOLO
-model = YOLO('yoloFiguritasv2.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
-model_seg = YOLO("yolo26n-seg.pt")
+model = YOLO('prFigurasIA/yoloFiguritasv3.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
 
 # Abrir la cámara
 cap = cv2.VideoCapture(0)
-
+print("torch:", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+print("cuda devices:", torch.cuda.device_count())
+if torch.cuda.is_available():
+    print("gpu:", torch.cuda.get_device_name(0))
 while cap.isOpened():
     success, image = cap.read()  # Captura un frame de la cámara
     if not success:
@@ -15,38 +19,43 @@ while cap.isOpened():
         continue
 
     # Realizar la detección con el modelo YOLO
-    results = model.predict(image, conf=0.8)  # Realiza la predicción
+    results = model.predict(image, conf=0.7)  # Realiza la predicción
     r = results[0]
-
-    r_seg = r
-
+    
     # Guardamos la info de la taza del frame
     for box in r.boxes:
         cls_id = int(box.cls[0])       # id de clase
         conf   = float(box.conf[0])    # confianza
         name   = r.names[cls_id]       # nombre de clase, según tu data.yaml
 
-        results_seg = model_seg(image, classes=[0])
-        r_seg = results_seg[0]
-        r_seg.names[0] = name
-
-
         #filtrar por confianza
-        if conf < 0.6:
+        if conf < 0.8:
             continue
-
-        if name == "tazaBatman":
+        if name == "Alfred Pennyworth":
+            w.writeValor("A")
+        if name == "Batgirl":
+            w.writeValor("G")
+        if name == "Bruce Wayne":
             w.writeValor("B")
-        if name == "taza_joker":
+        if name == "Catwoman":
+            w.writeValor("C")
+        if name == "Cyborg":
+            w.writeValor("Y")
+        if name == "Flash":
+            w.writeValor("F")
+        if name == "Harley Quien":
+            w.writeValor("H")
+        if name == "Joker":
             w.writeValor("J")
-        if name == "taza_superman":
+        if name == "Jor-el":
             w.writeValor("S")
-        if name == "wonderwoman":
+        if name == "Wonder Woman":
             w.writeValor("W")
+            
             
     # `results` es una lista de resultados, acceder al primer resultado
     # La imagen procesada con las anotaciones se obtiene desde `results[0].plot()`
-    annotated_image = r_seg.plot()  # Devuelve la imagen con las anotaciones
+    annotated_image = r.plot()  # Devuelve la imagen con las anotaciones
 
     # Mostrar la imagen con las detecciones
     cv2.imshow("Detecciones YOLO", annotated_image)
