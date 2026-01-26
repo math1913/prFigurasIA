@@ -1,17 +1,12 @@
 from ultralytics import YOLO
 import cv2
 import write_xml as w
-import torch
+
 # Cargar el modelo YOLO
 model = YOLO('prFigurasIA/yoloFiguritasv3.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
 
 # Abrir la cámara
 cap = cv2.VideoCapture(0)
-print("torch:", torch.__version__)
-print("cuda available:", torch.cuda.is_available())
-print("cuda devices:", torch.cuda.device_count())
-if torch.cuda.is_available():
-    print("gpu:", torch.cuda.get_device_name(0))
 while cap.isOpened():
     success, image = cap.read()  # Captura un frame de la cámara
     if not success:
