@@ -2,7 +2,8 @@ from ultralytics import YOLO
 import cv2
 import write_xml as w
 # Cargar el modelo YOLO
-model = YOLO('yoloHarley2.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
+model = YOLO('yoloFiguritasv2.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
+model_seg = YOLO("yolo26n-seg.pt")
 
 # Abrir la cámara
 cap = cv2.VideoCapture(0)
@@ -17,11 +18,18 @@ while cap.isOpened():
     results = model.predict(image, conf=0.8)  # Realiza la predicción
     r = results[0]
 
+    r_seg = r
+
     # Guardamos la info de la taza del frame
     for box in r.boxes:
         cls_id = int(box.cls[0])       # id de clase
         conf   = float(box.conf[0])    # confianza
         name   = r.names[cls_id]       # nombre de clase, según tu data.yaml
+
+        results_seg = model_seg(image, classes=[0])
+        r_seg = results_seg[0]
+        r_seg.names[0] = name
+
 
         #filtrar por confianza
         if conf < 0.6:
@@ -33,12 +41,12 @@ while cap.isOpened():
             w.writeValor("J")
         if name == "taza_superman":
             w.writeValor("S")
-        if name == "taza_wondwoman":
+        if name == "wonderwoman":
             w.writeValor("W")
             
     # `results` es una lista de resultados, acceder al primer resultado
     # La imagen procesada con las anotaciones se obtiene desde `results[0].plot()`
-    annotated_image = r.plot()  # Devuelve la imagen con las anotaciones
+    annotated_image = r_seg.plot()  # Devuelve la imagen con las anotaciones
 
     # Mostrar la imagen con las detecciones
     cv2.imshow("Detecciones YOLO", annotated_image)
