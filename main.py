@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 import cv2
-import prFigurasIA.write_temp as w
+import write_xml as w
 
 # Cargar el modelo YOLO
 model = YOLO('prFigurasIA/yoloFiguritasv3.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
