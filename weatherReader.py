@@ -2,9 +2,12 @@ import sys
 import requests
 import write_temp as w
 import time
+from dotenv import load_dotenv
+import os
+load_dotenv()
 def main():
     sunsetTime = 3600 #tiempo en segundos que estara la animacion de afternoon admira
-    api_key = "4a24b604a50c1ab4681b757e8b89b21b" 
+    api_key = os.getenv("API_KEY")
     city = "Barcelona"
     url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
@@ -14,6 +17,7 @@ def main():
         "lang": "es",
     }
     while (True):
+        time.sleep(10)
         try:
             resp = requests.get(url, params=params, timeout=15)
             resp.raise_for_status()
