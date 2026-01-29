@@ -7,7 +7,7 @@ import os
 load_dotenv()
 def main():
     sunsetTime = 3600 #tiempo en segundos que estara la animacion de afternoon admira
-    api_key = os.getenv("API_KEY")
+    api_key = "4a24b604a50c1ab4681b757e8b89b21b"
     city = "Barcelona"
     url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
@@ -24,7 +24,7 @@ def main():
             data = resp.json()
         except requests.exceptions.RequestException:
             continue
-        # --- Lógica por weather id ---
+        # --- LÃ³gica por weather id ---
         # OpenWeather devuelve una lista "weather"; normalmente usamos el primer elemento.
         weather_id = None
         try:
@@ -35,7 +35,7 @@ def main():
         sunrise = data["sys"]["sunrise"]
         sunset = data["sys"]["sunset"]
         tiempoActual = int(time.time())
-        # 3 IFs (rellena tú el contenido)
+        # 3 IFs (rellena tÃº el contenido)
         if (tiempoActual > sunrise) and (tiempoActual < sunset): #De dia
             if weather_id < 800: #Tormenta/lluvia/llovizna
                 w.writeValor("DL")

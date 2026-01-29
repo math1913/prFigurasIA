@@ -3,34 +3,58 @@ import cv2
 import write_xml as w
 
 # Cargar el modelo YOLO
-model = YOLO('prFigurasIA/yoloFiguritasv3.pt')  # Asegúrate de usar la ruta correcta de tu archivo .pt
+model = YOLO("C:\\Users\\BitsandAtoms\\Proyectos\\iaMunecos\\prFigurasIA\\yoloFiguritasv2.pt")  # AsegÃºrate de usar la ruta correcta de tu archivo .pt
 
-# Abrir la cámara
+# Abrir la cÃ¡mara
 cap = cv2.VideoCapture(0)
 while cap.isOpened():
-    success, image = cap.read()  # Captura un frame de la cámara
+    success, image = cap.read()  # Captura un frame de la cÃ¡mara
     if not success:
-        #print("Ignorando frame vacío de la cámara.")
+        #print("Ignorando frame vacÃ­o de la cÃ¡mara.")
         continue
 
-    # Realizar la detección con el modelo YOLO
-    results = model.predict(image, conf=0.7)  # Realiza la predicción
+    # Realizar la detecciÃ³n con el modelo YOLO
+    results = model.predict(image, conf=0.7)  # Realiza la predicciÃ³n
     r = results[0]
     
     # Guardamos la info de la taza del frame
     for box in r.boxes:
         cls_id = int(box.cls[0])       # id de clase
         conf   = float(box.conf[0])    # confianza
-        name   = r.names[cls_id]       # nombre de clase, según tu data.yaml
+        name   = r.names[cls_id]       # nombre de clase, segÃºn tu data.yaml
 
-        #filtrar por confianza
+        # #filtrar por confianza Modelo v3+
+        # if conf < 0.8:
+        #     continue
+        # if name == "Alfred Pennyworth":
+        #     w.writeValor("A")
+        # if name == "Batgirl":
+        #     w.writeValor("G")
+        # if name == "Bruce Wayne":
+        #     w.writeValor("B")
+        # if name == "Catwoman":
+        #     w.writeValor("C")
+        # if name == "Cyborg":
+        #     w.writeValor("Y")
+        # if name == "Flash":
+        #     w.writeValor("F")
+        # if name == "Harley Quien":
+        #     w.writeValor("H")
+        # if name == "Joker":
+        #     w.writeValor("J")
+        # if name == "Jor-el":
+        #     w.writeValor("S")
+        # if name == "Wonder Woman":
+        #     w.writeValor("W")
+
+        #filtrar por confianza modelo v2
         if conf < 0.8:
             continue
-        if name == "Alfred Pennyworth":
+        if name == "Alfred":
             w.writeValor("A")
         if name == "Batgirl":
             w.writeValor("G")
-        if name == "Bruce Wayne":
+        if name == "Bruce":
             w.writeValor("B")
         if name == "Catwoman":
             w.writeValor("C")
@@ -38,13 +62,13 @@ while cap.isOpened():
             w.writeValor("Y")
         if name == "Flash":
             w.writeValor("F")
-        if name == "Harley Quien":
+        if name == "Harley":
             w.writeValor("H")
         if name == "Joker":
             w.writeValor("J")
-        if name == "Jor-el":
+        if name == "Superman":
             w.writeValor("S")
-        if name == "Wonder Woman":
+        if name == "WonderWoman":
             w.writeValor("W")
             
             
@@ -59,6 +83,6 @@ while cap.isOpened():
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break
 
-# Liberar la cámara y cerrar todas las ventanas de OpenCV
+# Liberar la cÃ¡mara y cerrar todas las ventanas de OpenCV
 cap.release()
 cv2.destroyAllWindows()
