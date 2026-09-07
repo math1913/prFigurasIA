@@ -210,3 +210,8 @@ __marimo__/
 datasets/
 yolo11n.pt
 runs/
+
+# Vídeos distribuidos mediante media-manifest.json y descargar_media.bat
+/media/*
+!/media/README.md
+/media-dist/

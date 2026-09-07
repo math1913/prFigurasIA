@@ -1,3 +1,6 @@
-ultralytics
-opencv-python
-torch
+-r requirements-web.txt
+ultralytics>=8.3,<9
+opencv-python>=4.10,<5
+torch>=2.6,<3
+pyscard>=2.3,<3
+pyserial==3.5

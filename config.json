@@ -1,0 +1,234 @@
+{
+  "figures": {
+    "enabled": true,
+    "model": "yoloFiguritasv2.pt",
+    "camera": 0,
+    "confidence": 0.8,
+    "stable_seconds": 0.5,
+    "absence_seconds": 1.0,
+    "cooldown_seconds": 60,
+    "repeat_while_present": false,
+    "preview": false,
+    "labels": {
+      "Alfred": "A",
+      "Alfred Pennyworth": "A",
+      "Batgirl": "G",
+      "Bruce": "B",
+      "Bruce Wayne": "B",
+      "Catwoman": "C",
+      "Cyborg": "Y",
+      "Flash": "F",
+      "Harley": "H",
+      "Harley Quien": "H",
+      "Harley Quinn": "H",
+      "Joker": "J",
+      "Superman": "S",
+      "Jor-el": "S",
+      "WonderWoman": "W",
+      "Wonder Woman": "W"
+    }
+  },
+  "nfc": {
+    "enabled": true,
+    "aliases_file": "aliases.json",
+    "trigger": "remove",
+    "monitored_objects": [
+      "Beatles",
+      "Jackson",
+      "Prince",
+      "Superman"
+    ]
+  },
+  "weather": {
+    "enabled": true,
+    "city": "Barcelona",
+    "api_key_env": "OPENWEATHER_API_KEY",
+    "poll_seconds": 300,
+    "stale_seconds": 1800,
+    "sunset_seconds": 3600,
+    "base_channels": [
+      "figuras"
+    ],
+    "videos": {
+      "DL": {
+        "title": "Día · Lluvia",
+        "src": "/media/ventana/lluvioso.mp4"
+      },
+      "DD": {
+        "title": "Día · Despejado",
+        "src": "/media/ventana/despejado.mp4"
+      },
+      "DN": {
+        "title": "Día · Nublado",
+        "src": "/media/ventana/despejado.mp4"
+      },
+      "A": {
+        "title": "Atardecer · Despejado",
+        "src": "/media/ventana/despejado.mp4"
+      },
+      "NL": {
+        "title": "Noche · Lluvia",
+        "src": "/media/ventana/lluvioso.mp4"
+      },
+      "ND": {
+        "title": "Noche · Despejado",
+        "src": "/media/ventana/despejado.mp4"
+      },
+      "NN": {
+        "title": "Noche · Nublado",
+        "src": "/media/ventana/despejado.mp4"
+      }
+    }
+  },
+  "channels": {
+    "figuras": {
+      "max_event_seconds": 3600,
+      "placeholder_seconds": 5,
+      "base": {
+        "title": "Cada figura tiene una historia",
+        "src": "/media/ventana/despejado.mp4"
+      },
+      "events": {
+        "A": {
+          "title": "Alfred",
+          "src": "/media/figuras/alfred.mp4"
+        },
+        "G": {
+          "title": "Batgirl",
+          "src": "/media/figuras/batgirl.mp4"
+        },
+        "B": {
+          "title": "Bruce Wayne",
+          "src": "/media/figuras/bruceWayne.mp4"
+        },
+        "C": {
+          "title": "Catwoman",
+          "src": "/media/figuras/catWoman.mp4"
+        },
+        "Y": {
+          "title": "Cyborg",
+          "src": "/media/figuras/Cyborg.mp4"
+        },
+        "F": {
+          "title": "Flash",
+          "src": "/media/figuras/flash.mp4"
+        },
+        "H": {
+          "title": "Harley Quinn",
+          "src": "/media/figuras/harleyQuinn.mp4"
+        },
+        "J": {
+          "title": "Joker",
+          "src": "/media/figuras/joker.mp4"
+        },
+        "S": {
+          "title": "Superman",
+          "src": "/media/figuras/Jorel.mp4"
+        },
+        "W": {
+          "title": "Wonder Woman",
+          "src": "/media/figuras/wonderWoman.mp4"
+        },
+        "Aquaman": {
+          "title": "Aquaman (código de barras)",
+          "src": "/media/figuras/aquamanFigura.mp4"
+        },
+        "Marciano": {
+          "title": "Marciano (código de barras)",
+          "src": "/media/figuras/martianFigura.mp4"
+        },
+        "Joker": {
+          "title": "Joker (código de barras)",
+          "src": "/media/figuras/jokerFigura.mp4"
+        },
+        "Enigma": {
+          "title": "Enigma (código de barras)",
+          "src": "/media/figuras/enigmaFigura.mp4"
+        },
+        "Espantapajaros": {
+          "title": "Espantapajaros (código de barras)",
+          "src": "/media/figuras/scareCrowFigura.mp4"
+        },
+        "Robin": {
+          "title": "Robin (código de barras)",
+          "src": "/media/figuras/robinFigura.mp4"
+        },
+        "Flash": {
+          "title": "Flash (código de barras)",
+          "src": "/media/figuras/flashFigura.mp4"
+        },
+        "Batman": {
+          "title": "Batman (código de barras)",
+          "src": "/media/figuras/batmanFigura.mp4"
+        },
+        "CocheJurassicWorld": {
+          "title": "CocheJurassicWorld",
+          "src": null
+        },
+        "CocheJurassicPark": {
+          "title": "CocheJurassicPark",
+          "src": null
+        },
+        "CocheDelorean": {
+          "title": "CocheDelorean",
+          "src": null
+        },
+        "CocheKitt": {
+          "title": "CocheKitt",
+          "src": null
+        }
+      }
+    },
+    "nfc": {
+      "max_event_seconds": 3600,
+      "placeholder_seconds": 5,
+      "base": {
+        "title": "Una nueva historia en tus manos",
+        "src": "/media/pantalla/bigBangIntro.mp4",
+        "muted": false
+      },
+      "events": {
+        "Beatles": {
+          "title": "The Beatles",
+          "src": "/media/NFC/Beatles.mp4",
+          "muted": false
+        },
+        "Jackson": {
+          "title": "Michael Jackson",
+          "src": "/media/NFC/MichaelJackson.mp4",
+          "muted": false
+        },
+        "Prince": {
+          "title": "Prince",
+          "src": "/media/NFC/Prince.mp4",
+          "muted": false
+        },
+        "Superman": {
+          "title": "Superman",
+          "src": "/media/NFC/Superman.mp4",
+          "muted": false
+        },
+        "Jeep": {
+          "title": "Jeep",
+          "src": null
+        },
+        "Batman": {
+          "title": "Batman",
+          "src": null
+        }
+      }
+    }
+  },
+  "barcode": {
+    "enabled": true,
+    "mapping_file": "barcode_id.json",
+    "port": null,
+    "vid": 9969,
+    "pid": 34818,
+    "baudrate": 9600,
+    "bytesize": 8,
+    "parity": "N",
+    "stopbits": 1,
+    "timeout_seconds": 1
+  }
+}

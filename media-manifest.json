@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "path": "figuras/alfred.mp4",
+      "size": 6869515,
+      "sha256": "9ca6760edf00e8b61bcdb4c09d02e39a78de90d08d5c1b337852f2170fa5a016"
+    },
+    {
+      "path": "figuras/aquamanFigura.mp4",
+      "size": 4330893,
+      "sha256": "f9d15589cee8ede734f774be73ba3bb8a322786434e1b007a547b990537d72db"
+    },
+    {
+      "path": "figuras/batgirl.mp4",
+      "size": 4637801,
+      "sha256": "a10d9dd53b802de03adf82827dab8d333b50d76ff7b9bcb25871439b436074f2"
+    },
+    {
+      "path": "figuras/batmanFigura.mp4",
+      "size": 2565876,
+      "sha256": "c540cd8237eda7af0a870f4c96fd997dadd66df8bb76926bd42bbf31c09478d7"
+    },
+    {
+      "path": "figuras/bruceWayne.mp4",
+      "size": 9145919,
+      "sha256": "2cca7a03cd257365f73cbdc87e2e048ab27d547ad718c124f65894260639f9e7"
+    },
+    {
+      "path": "figuras/catWoman.mp4",
+      "size": 9762904,
+      "sha256": "1695fcabd1bf8a2cdbbcfa4431c1fd242a3ac58da6a87a840d035a90fac923af"
+    },
+    {
+      "path": "figuras/Cyborg.mp4",
+      "size": 15323242,
+      "sha256": "ef6e6d6286f78f3006f0ba48cff707c0668907a3751ee3f51609517e40e6882a"
+    },
+    {
+      "path": "figuras/enigmaFigura.mp4",
+      "size": 3931315,
+      "sha256": "c493398cb6902f36ebf9902d6430b7427bbbc549638314f0b0136ee1fef795aa"
+    },
+    {
+      "path": "figuras/flash.mp4",
+      "size": 19961180,
+      "sha256": "301a62ff8857d2becfdf4614e07b83a1bd9a07fe9431d653fdbc0abcee1fa62f"
+    },
+    {
+      "path": "figuras/flashFigura.mp4",
+      "size": 4427584,
+      "sha256": "712644aa7b509d9b68f7e085271c72c9a85743435c8f0ee744c7cb486364959c"
+    },
+    {
+      "path": "figuras/halo.mp4",
+      "size": 2056999,
+      "sha256": "6562c877e5874b1496a600b4f7f7f2c80b704aedb939e936f767218006a7dec7"
+    },
+    {
+      "path": "figuras/harleyQuinn.mp4",
+      "size": 23694237,
+      "sha256": "1c34d231306b616ff7989f3174990b5f354ca829c2407bf5b2fc76080b5f1ab1"
+    },
+    {
+      "path": "figuras/joker.mp4",
+      "size": 17107190,
+      "sha256": "13a4a6cdfe52822dc1267b182eae45e34485c5eba33cc326ebf6cfdd8721b517"
+    },
+    {
+      "path": "figuras/jokerFigura.mp4",
+      "size": 3244153,
+      "sha256": "6dd25889d11acbff8faeffdd88642a846f37b6bf425385eb601a3f1f36499e33"
+    },
+    {
+      "path": "figuras/Jorel.mp4",
+      "size": 11056683,
+      "sha256": "537388950640f7e861cae36e55ed5c211864a6255202080d3addcfc6a0726f8d"
+    },
+    {
+      "path": "figuras/martianFigura.mp4",
+      "size": 3992115,
+      "sha256": "820c6f0b187dad13404c9c9ca488cb7403d00bfc104085b91c66e8c1a735f23d"
+    },
+    {
+      "path": "figuras/robinFigura.mp4",
+      "size": 4549645,
+      "sha256": "9bb5a056298d091cce7a52e27597a102b5809a30166017c69cefdb0c509150f5"
+    },
+    {
+      "path": "figuras/scareCrowFigura.mp4",
+      "size": 4497590,
+      "sha256": "4b7a85852bcc7cf938ac1b18443f2bc32d99cc247a4399d252d84a3282be645e"
+    },
+    {
+      "path": "figuras/wonderWoman.mp4",
+      "size": 19326206,
+      "sha256": "205eab596fa5dc6817213ef37c83709a957d47dba4bbc4fc1450bdf42b14340a"
+    },
+    {
+      "path": "NFC/Beatles.mp4",
+      "size": 196384857,
+      "sha256": "e6d1780f33a3d861ccef620260132c571a5e6b4a4b8e0009f2a235fcb30b640a"
+    },
+    {
+      "path": "NFC/MichaelJackson.mp4",
+      "size": 44715330,
+      "sha256": "4906a892e2c19fa8a8c1ba74a36c8f0fe51847024ff70d85c8d397af83edb999"
+    },
+    {
+      "path": "NFC/Prince.mp4",
+      "size": 193517527,
+      "sha256": "124059ac9ec04e61272d880dfd4d4c2015afc31026be2c2fe1269ec7ef3f7262"
+    },
+    {
+      "path": "NFC/Superman.mp4",
+      "size": 190047615,
+      "sha256": "4c3232f256633ea7985771b6706e8e0f8a0dc9aed8de15f3b2ad045957026989"
+    },
+    {
+      "path": "pantalla/bigBangIntro.mp4",
+      "size": 7186474,
+      "sha256": "9706953d91375bd44bb855271cb65c7c0c083ba859d47071ed523fd0a1f4d1bb"
+    },
+    {
+      "path": "ventana/despejado.mp4",
+      "size": 924675,
+      "sha256": "23cc7f2721b21448b1b26b3fc37616dc4b02398d07e9265dee5ee395e8da2369"
+    },
+    {
+      "path": "ventana/lluvioso.mp4",
+      "size": 314614,
+      "sha256": "b20330660f24a1e56dd0555da867a5845082190e3e83df78fa3ea85473c04f22"
+    }
+  ]
+}

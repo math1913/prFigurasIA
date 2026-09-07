@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BigBang · Control de pantallas</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script defer src="/static/control.js"></script>
+</head>
+<body>
+  <main class="control">
+    <header><span class="wordmark">BIGBANG</span><span id="mode" class="badge">Conectando</span></header>
+    <h1>Dos experiencias.<br>Un mismo lugar.</h1>
+    <p class="intro">Cada pantalla cuenta su propia historia. Abre cada experiencia en su monitor: los vídeos cambian con las acciones y vuelven a la base cuando terminan.</p>
+    <section class="screens" aria-label="Pantallas">
+      <article class="screen-card">
+        <span class="screen-number">01 / CÁMARA + CÓDIGOS DE BARRAS</span><h2>Figuras</h2>
+        <p>Muestra una figura a la cámara o escanea su código de barras para activar su vídeo.</p>
+        <a class="screen-link" href="/figuras" target="_blank" rel="noopener">Abrir pantalla de figuras ↗</a>
+      </article>
+      <article class="screen-card nfc">
+        <span class="screen-number">02 / NFC</span><h2>Objetos</h2>
+        <p>Al levantar un objeto de su lector, se reproduce el vídeo asociado a su identidad.</p>
+        <a class="screen-link" href="/nfc" target="_blank" rel="noopener">Abrir pantalla de NFC ↗</a>
+      </article>
+    </section>
+    <section id="status" class="status-grid" aria-label="Estado del sistema"></section>
+    <section id="demo" class="demo-panel" hidden>
+      <h2>Prueba las experiencias</h2>
+      <p class="intro">Abre las pantallas y elige una acción para ver el cambio. Puedes activar ambas al mismo tiempo.</p>
+      <div id="event-groups"></div>
+      <p id="feedback" role="status"></p>
+    </section>
+    <footer>Vídeos y asignaciones en <code>config.json</code> · Archivos en <code>media/</code><br>Usa F11 o el botón de la esquina inferior de cada pantalla para verla a pantalla completa.</footer>
+  </main>
+</body>
+</html>
