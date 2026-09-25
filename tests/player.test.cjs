@@ -13,13 +13,14 @@ const snapshot = (overrides = {}) => ({
   ...overrides,
 });
 
-function harness(initial) {
-  const env = {state: initial, offline: false, blocked: false, legacy: false, completions: [], timers: new Map(), siblings: []};
+function harness(initial, {role, channel = "figuras", pathname} = {}) {
+  const env = {state: initial, offline: false, blocked: false, legacy: false, completions: [], timers: new Map(),
+               siblings: [], urls: [], now: 0};
   let timerId = 0;
   class Element {
     constructor(tag) {
       this.tag = tag; this.children = []; this.listeners = {}; this.hidden = true; this.paused = true;
-      this.duration = 12; this.currentTime = 0; this.dataset = {}; this.attributes = {};
+      this.duration = 12; this.currentTime = 0; this.playbackRate = 1; this.dataset = {}; this.attributes = {};
     }
     get firstChild() { return this.children[0] ?? null; }
     setAttribute(key, value) { this.attributes[key] = value; }
@@ -47,7 +48,7 @@ function harness(initial) {
     }
   }
   class FakeXHR {
-    open(method, url) { this.url = url; }
+    open(method, url) { this.url = url; env.urls.push(url); }
     setRequestHeader() {}
     send(body) {
       queueMicrotask(() => {
@@ -69,10 +70,12 @@ function harness(initial) {
   elements.stage.parentNode = new Element("body");
   const context = vm.createContext({
     document: {
-      body: {dataset: {channel: "figuras"}},
+      body: {dataset: {channel: pathname ? undefined : channel, role}},
       querySelector: selector => elements[selector.slice(1)],
       createElement: tag => new Element(tag),
     },
+    location: {pathname: pathname ?? "/" + channel},
+    performance: {now: () => env.now},
     console: {error() {}, warn() {}}, XMLHttpRequest: FakeXHR,
     setTimeout: (fn, ms) => { const id = ++timerId; env.timers.set(id, {fn, ms}); return id; },
     clearTimeout: id => env.timers.delete(id),
@@ -239,6 +242,80 @@ test("superpone los indicadores NFC solo si la pantalla lo tiene configurado", a
   assert.equal(frame.removed, true);
   const plain = harness(snapshot()); await flush();
   assert.deepEqual(plain.siblings, []);
+});
+
+test("los vídeos llenan la pantalla salvo que su configuración diga otra cosa", async () => {
+  const env = harness(snapshot()); await flush();
+  assert.equal(env.video().className, "fit-cover");
+  env.state = snapshot({revision: 1, fit: "contain", mode: "event", event_id: "one", content: {...base, fit: "fill"}});
+  await env.poll();
+  assert.equal(env.video().className, "fit-fill");
+  env.state = snapshot({revision: 2, fit: "contain", mode: "event", event_id: "two", content: {...base, src: "/media/two.mp4"}});
+  await env.poll();
+  assert.equal(env.video().className, "fit-contain");
+});
+
+test("con audio_on_pc la pantalla va en silencio y la página de audio pone el sonido", async () => {
+  const song = {title: "Canción", src: "/media/song.mp4", muted: false};
+  const screen = harness(snapshot({audio_on_pc: true, content: song, base: song}), {channel: "nfc"}); await flush();
+  assert.equal(screen.video().tag, "video");
+  assert.equal(screen.video().muted, true);
+  assert.match(screen.urls.at(-1), /^\/api\/state\/nfc\?t=\d+$/);
+  const audio = harness(snapshot({audio_on_pc: true, content: song, base: song}), {role: "audio", pathname: "/audio/nfc"}); await flush();
+  assert.equal(audio.video().tag, "audio");
+  assert.equal(audio.video().muted, false);
+  assert.match(audio.urls.at(-1), /^\/api\/state\/nfc\?t=\d+&audio=1$/);
+  assert.deepEqual(audio.siblings, []);
+  const alone = harness(snapshot({content: song, base: song}), {role: "audio", pathname: "/audio/nfc"}); await flush();
+  assert.equal(alone.video().muted, true);
+});
+
+test("pantalla y audio siguen el reloj del servidor sin saltos salvo que se separen mucho", async () => {
+  const song = {title: "Canción", src: "/media/song.mp4", muted: false};
+  const env = harness(snapshot({audio_on_pc: true, revision: 1, mode: "event", event_id: "song", content: song, elapsed_seconds: 10}));
+  await flush();
+  const video = env.video();
+  Object.assign(video, {paused: false, readyState: 4, duration: 60});
+  const at = (now, elapsed, position) => {
+    Object.assign(env, {now});
+    env.state.elapsed_seconds = elapsed;
+    video.currentTime = position;
+    return env.poll();
+  };
+  await at(1000, 11, 10.8);
+  assert.ok(Math.abs(video.playbackRate - 1.1) < 1e-9);  // Va 0,2 s por detrás: acelera un poco.
+  await at(1250, 11.25, 11.27);
+  assert.equal(video.playbackRate, 1);
+  await at(1500, 11.5, 5);
+  assert.equal(video.currentTime, 11.5);  // Muy separado: salta.
+  await at(2000, 12, 12.3);
+  assert.equal(video.currentTime, 12.3);  // Justo después de un salto se espera antes de corregir.
+  await at(3500, 13.5, 13.8);
+  assert.ok(video.playbackRate < 1);
+  await at(9000, 19, 19.3);
+  assert.equal(video.currentTime, 19);  // Lleva más de 5 s sin recuperarse: salta.
+});
+
+test("el audio del PC va con el retraso configurado y sigue la base en bucle", async () => {
+  const loop = {title: "Base", src: "/media/base.mp4", muted: false};
+  const env = harness(snapshot({audio_on_pc: true, audio_delay_ms: 200, content: loop, base: loop, elapsed_seconds: 25}),
+                      {role: "audio", pathname: "/audio/nfc"});
+  await flush();
+  const video = env.video();
+  video.duration = 12;
+  video.emit("loadedmetadata");
+  assert.ok(Math.abs(video.currentTime - 0.8) < 1e-9);  // 25 s - 0,2 s de retraso, dentro de un bucle de 12 s.
+});
+
+test("al terminar un vídeo, la base no vuelve a empezar cuando el servidor lo confirma", async () => {
+  const env = harness(snapshot({revision: 1, mode: "event", event_id: "one", content: {...base, src: "/media/one.mp4"}}));
+  await flush();
+  env.video().emit("ended"); await flush();
+  const playing = env.video();
+  assert.equal(playing.src, "/media/base.mp4");
+  env.state = snapshot({revision: 2});
+  await env.poll();
+  assert.equal(env.video(), playing);
 });
 
 test("player.js y overlay.js siguen en ES5 para el Chromium antiguo del reproductor", () => {

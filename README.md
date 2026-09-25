@@ -46,6 +46,7 @@ No hace falta activar el entorno virtual. El desarrollo y las pruebas web se han
 | http://localhost:8002/nfc | Pantalla de NFC |
 | http://localhost:8002/overlay | Indicadores NFC con fondo transparente, superpuestos a una pantalla |
 | http://localhost:8002/objetos | API de presencia NFC, conserva los nombres y el puerto original |
+| http://localhost:8002/audio/nfc | Solo el sonido de NFC, para el PC (la aplicación la abre sola, ver «Sonido desde el PC») |
 
 Muestra cada pantalla a pantalla completa en su monitor con el software de pantallas; para una prueba rápida en un navegador, usa F11. Las páginas necesitan el servidor en ejecución; no se abren directamente como archivos. Detén la aplicación con Ctrl+C.
 
@@ -71,7 +72,7 @@ Para que arranque al encender el PC, crea una tarea en el Programador de tareas:
 
 1. **Desencadenador:** «Al iniciar la sesión» del usuario del montaje, con el inicio de sesión automático de Windows activado. En la sesión del usuario, la cámara y los lectores funcionan con menos problemas que con «Al iniciar el sistema».
 2. **Acción:** «Iniciar un programa», con la ruta completa de `iniciar_bigbang.bat`.
-3. **General:** «Ejecutar solo cuando el usuario haya iniciado sesión».
+3. **General:** «Ejecutar solo cuando el usuario haya iniciado sesión». El sonido del PC también lo necesita: fuera de la sesión no hay altavoces.
 4. **Configuración:** desmarca «Detener la tarea si se ejecuta durante más de 3 días», que viene marcada y la cerraría a los tres días. Mantén «No iniciar una instancia nueva».
 
 El software de pantallas necesita que el servidor ya responda al abrir las URL. Si arranca antes que la tarea, añade unos segundos de retraso o activa su recarga automática.
@@ -105,7 +106,9 @@ Por ejemplo, este objeto configura el contenido de `channels.nfc.events.Prince`:
 }
 ```
 
-`media/nfc/prince.mp4` debe existir. Usa vídeos que tu navegador pueda reproducir; MP4 con H.264 es una opción habitual. El reproductor mantiene las proporciones y usa bandas negras si el formato no coincide con la pantalla.
+`media/nfc/prince.mp4` debe existir. Usa vídeos que tu navegador pueda reproducir; MP4 con H.264 es una opción habitual.
+
+Los vídeos llenan la pantalla aunque su formato no coincida con ella: `fit` es `cover` por defecto y recorta lo que sobra, sin deformar. Se configura por pantalla, en `channels.figuras.fit` y `channels.nfc.fit`, y un vídeo concreto puede llevar el suyo con `"fit"`. `contain` muestra el vídeo entero con bandas negras y `fill` lo estira hasta llenar la pantalla. Si con `cover` queda una franja negra, está fuera de la página: es el margen que deja el propio reproductor o la tele.
 
 `muted` es `true` por defecto para permitir reproducción automática. Con `false`, muchos navegadores solo reproducen con sonido tras una interacción del usuario. Como las pantallas no tienen botones, en ese caso el vídeo se reproduce igualmente, sin sonido, y la consola del navegador lo avisa. Para que suene, permite la reproducción automática con sonido en el software de pantallas; en Chrome o Edge, con el argumento `--autoplay-policy=no-user-gesture-required`.
 
@@ -116,7 +119,7 @@ Si un vídeo de acción no se puede cargar, se vuelve a la base. Si falla el ví
 ## Comportamiento
 
 - El vídeo base se reproduce en bucle.
-- Una nueva acción interrumpe inmediatamente el vídeo de acción anterior **del mismo canal**.
+- Una nueva acción interrumpe inmediatamente el vídeo de acción anterior **del mismo canal**. La excepción es NFC: retirar otra vez el objeto cuya canción ya suena no la reinicia.
 - Cuando termina el vídeo de acción, vuelve a comenzar el vídeo base que corresponda en ese momento.
 - Los canales de figuras y NFC pueden reproducir acciones simultáneas sin interferirse.
 - Cada acción tiene un identificador: un aviso de fin tardío del vídeo anterior no puede cerrar el vídeo nuevo.
@@ -169,7 +172,7 @@ El último evento de cámara o escáner sustituye al anterior en la pantalla de 
 
 ### NFC
 
-Se activa **al retirar el objeto**, conservando el comportamiento original. `aliases.json` asigna UID a contenido. Los alias disponibles son Beatles, Jackson, Prince, Superman, Jeep y Batman. El mismo objeto puede retirarse varias veces y activar su vídeo cada vez.
+Se activa **al retirar el objeto**, conservando el comportamiento original. `aliases.json` asigna UID a contenido. Los alias disponibles son Beatles, Jackson, Prince, Superman, Jeep y Batman. Como con las figuras, un contenido no se interrumpe a sí mismo: si la canción de un objeto ya suena, retirarlo otra vez no la devuelve al principio. Cuando termina, vuelve a activarse la próxima vez que se retire, lo que exige haberlo colocado antes en su lector. Otro objeto sí la interrumpe.
 
 Las tarjetas sin alias o con lectura fallida no activan contenido. Los lectores se distinguen por su nombre; retirar una tarjeta no borra la presencia en otros lectores. `/objetos` mantiene los cuatro objetos monitorizados originalmente: Beatles, Jackson, Prince y Superman, configurables mediante `nfc.monitored_objects`. Responde 503 si el lector no está disponible.
 
@@ -184,6 +187,14 @@ Integra el overlay de la rama `controlNFC` de NFC-ACR122 en una página aparte, 
 `nfc.overlay_channels` decide sobre qué pantallas se superpone: `["nfc"]` por defecto, `["figuras"]`, ambas o `[]` para ninguna. La pantalla lo coloca encima del vídeo sin bloquear los botones y lo retira si se desactiva al reiniciar. Para usarlo en otro sistema de capas, abre directamente `/overlay`.
 
 Los logos están en `web/img/` y el `id` de cada indicador de `web/overlay.html` coincide con su alias de `aliases.json`. En `--demo` no aparece ningún logo, porque no hay lectores que detecten libros.
+
+#### Sonido desde el PC
+
+Con `channels.nfc.audio_on_pc: true`, como ahora, la pantalla de NFC se reproduce siempre en silencio y el sonido sale por los altavoces del PC que ejecuta la aplicación. La tele no necesita altavoz.
+
+La aplicación abre `/audio/nfc` en un Chrome sin ventana, o en Edge si no hay Chrome, con la reproducción automática con sonido permitida. Lo vuelve a abrir si se cierra o deja de responder, y lo cierra al terminar, aunque la aplicación se cierre de golpe. El panel muestra su estado en «Sonido · PC». `audio.browser` permite indicar la ruta del navegador y `audio.enabled: false` evita abrirlo, por ejemplo si prefieres abrir `/audio/nfc` en otro equipo.
+
+Pantalla y sonido siguen el reloj del servidor y se corrigen solos con pequeños cambios de velocidad, sin saltos, así que imagen y canción van a la par. Si la tele tarda en mostrar la imagen y el sonido se adelanta, sube `channels.nfc.audio_delay_ms` (por ejemplo, a `100`); con un valor negativo, el sonido se adelanta. Con `audio_on_pc: false`, cada pantalla suena por sí misma, como antes.
 
 ### Clima
 
@@ -286,6 +297,7 @@ display_app/
   state.py              Canales, fin de reproducción y filtro de detecciones
   figures.py            Cámara y YOLO
   nfc.py                PC/SC y retirada de objetos
+  audio.py              Navegador sin ventana que pone el sonido en el PC
   barcode.py            Escáner serie y lectura de códigos
   weather.py            OpenWeather y selección de clima
 web/
@@ -293,6 +305,7 @@ web/
   nfc.html              Pantalla de NFC
   player.js             Reproductor compartido
   overlay.html          Indicadores NFC superpuestos (overlay.js, overlay.css)
+  audio.html            Sonido de una pantalla en el PC (usa player.js)
   img/                  Logos de los libros NFC
   index.html            Panel de control y simulación
 media/                  Tus vídeos locales

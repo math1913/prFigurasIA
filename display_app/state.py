@@ -17,21 +17,32 @@ class DisplayState:
         self.active = {name: None for name in settings.channels}
         self.revisions = {name: 0 for name in settings.channels}
         self.hardware = {name: {"status": "starting", "detail": "Iniciando"}
-                         for name in ["figuras", "barcode", "nfc", "weather"]}
+                         for name in ["figuras", "barcode", "nfc", "weather", "audio"]}
         self.present = {}
         self.weather_code = None
+        # Desde cuándo suena la base: pantalla y audio del PC la siguen desde el mismo punto.
+        self.base_since = {name: clock() for name in settings.channels}
+        self.audio_seen = {}
+
+    def _to_base(self, channel):
+        self.active[channel] = None
+        self.revisions[channel] += 1
+        self.base_since[channel] = self.clock()
 
     def _expire(self, channel):
         event = self.active[channel]
         if event and self.clock() >= event["deadline"]:
-            self.active[channel] = None
-            self.revisions[channel] += 1
+            self._to_base(channel)
 
-    def trigger(self, channel: str, key: str) -> bool:
+    def trigger(self, channel: str, key: str, restart=True) -> bool:
         with self.lock:
             config = self.settings.channels[channel]
             if key not in config.events:
                 return False
+            self._expire(channel)
+            active = self.active[channel]
+            if not restart and active and active["key"] == key:
+                return False  # Sigue sonando: no vuelve al principio.
             self.revisions[channel] += 1
             video = config.events[key]
             seconds = config.max_event_seconds if video.src else config.placeholder_seconds
@@ -47,8 +58,7 @@ class DisplayState:
             active = self.active[channel]
             if active is None or active["id"] != event_id:
                 return False
-            self.active[channel] = None
-            self.revisions[channel] += 1
+            self._to_base(channel)
             return True
 
     def base_video(self, channel):
@@ -68,6 +78,7 @@ class DisplayState:
                 for channel in self.settings.weather.base_channels:
                     if self.active[channel] is None:
                         self.revisions[channel] += 1
+                        self.base_since[channel] = self.clock()
 
     def is_idle(self, channel):
         with self.lock:
@@ -85,13 +96,27 @@ class DisplayState:
                 "mode": "event" if active else "base",
                 "key": active["key"] if active else None,
                 "event_id": active["id"] if active else None,
-                "elapsed_seconds": self.clock() - active["started"] if active else 0,
+                # Tiempo desde que empezó lo que toca: el evento o, en la base, su bucle.
+                "elapsed_seconds": self.clock() - (active["started"] if active else self.base_since[channel]),
                 "remaining_ms": max(0, (active["deadline"] - self.clock()) * 1000) if active else 0,
                 "content": (config.events[active["key"]] if active else self.base_video(channel)).model_dump(),
                 "base": self.base_video(channel).model_dump(),
                 "fallback_base": config.base.model_dump(),
                 "overlay": channel in self.settings.nfc.overlay_channels,
+                "fit": config.fit,
+                "audio_on_pc": config.audio_on_pc,
+                "audio_delay_ms": config.audio_delay_ms,
             }
+
+    def saw_audio_page(self, channel):
+        with self.lock:
+            self.audio_seen[channel] = self.clock()
+
+    def audio_page_age(self, channel):
+        """Segundos desde la última consulta de /audio/<canal>, o None si nunca ha consultado."""
+        with self.lock:
+            seen = self.audio_seen.get(channel)
+            return None if seen is None else self.clock() - seen
 
     def set_hardware(self, channel, status, detail):
         with self.lock:

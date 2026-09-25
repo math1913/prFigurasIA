@@ -69,7 +69,7 @@ def test_barcode_api_demo_and_production():
         assert client.post("/api/demo/barcode", json={"key": "bad"}).status_code == 404
         assert len(client.get("/api/barcodes").json()) == 14
     settings = load_settings()
-    for name in ("figures", "nfc", "weather", "barcode"):
+    for name in ("figures", "nfc", "weather", "barcode", "audio"):
         getattr(settings, name).enabled = False
     with TestClient(create_app(settings=settings)) as client:
         assert client.post("/api/demo/barcode", json={"key": "8432752047484"}).status_code == 403

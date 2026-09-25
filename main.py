@@ -17,7 +17,7 @@ def main():
     import uvicorn
     from display_app.server import create_app
 
-    app = create_app(args.config, demo=args.demo)
+    app = create_app(args.config, demo=args.demo, port=args.port)
     print(f"Figuras: http://localhost:{args.port}/figuras")
     print(f"NFC:     http://localhost:{args.port}/nfc")
     print(f"Control: http://localhost:{args.port}/")

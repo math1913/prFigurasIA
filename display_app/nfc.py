@@ -27,11 +27,13 @@ class NFCObserver:
     def update(self, observable, actions):
         added, removed = actions
         # Primero las retiradas: permite reemplazar tarjetas con el mismo ATR.
+        # restart=False: si su canción ya suena no vuelve al principio. Al terminar, se reactiva la
+        # próxima vez que se retire, lo que exige haberlo colocado y detectado antes.
         for card in removed:
             key = (str(card.reader), tuple(card.atr))
             info = self.present.pop(key, None)
             if info and self.state.settings.nfc.trigger == "remove":
-                self.state.trigger("nfc", info["alias"])
+                self.state.trigger("nfc", info["alias"], restart=False)
         for card in added:
             key = (str(card.reader), tuple(card.atr))
             self.present.pop(key, None)
@@ -50,7 +52,7 @@ class NFCObserver:
                     continue
                 self.present[key] = {"uid": uid, "alias": alias}
                 if self.state.settings.nfc.trigger == "insert":
-                    self.state.trigger("nfc", alias)
+                    self.state.trigger("nfc", alias, restart=False)
             except Exception:
                 log.exception("Error leyendo tarjeta en %s", card.reader)
             finally:

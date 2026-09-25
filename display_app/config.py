@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ROOT = Path(__file__).resolve().parent.parent
 WEATHER_CODES = {"DL", "DD", "DN", "A", "NL", "ND", "NN"}
+# cover llena la pantalla recortando lo que sobra, contain muestra el vídeo entero con bandas y fill lo estira.
+Fit = Literal["contain", "cover", "fill"]
 
 
 class SettingsModel(BaseModel):
@@ -16,6 +18,7 @@ class Video(SettingsModel):
     title: str
     src: str | None = None
     muted: bool = True
+    fit: Fit | None = None  # Sustituye al fit de su pantalla solo para este vídeo.
 
     @model_validator(mode="after")
     def validate_source(self):
@@ -28,6 +31,11 @@ class Channel(SettingsModel):
     # Solo es una protección para vídeos dañados o pantallas desconectadas.
     max_event_seconds: float = Field(default=3600, gt=0, le=86400)
     placeholder_seconds: float = Field(default=5, gt=0, le=3600)
+    fit: Fit = "cover"
+    # El sonido sale del PC (/audio/<canal>, en un navegador sin ventana) y la pantalla va en silencio.
+    audio_on_pc: bool = False
+    # Retrasa el sonido del PC para compensar lo que tarda la pantalla en mostrar la imagen.
+    audio_delay_ms: int = Field(default=0, ge=-2000, le=2000)
     base: Video
     events: dict[str, Video]
 
@@ -84,11 +92,17 @@ class Weather(SettingsModel):
         return self
 
 
+class Audio(SettingsModel):
+    enabled: bool = True
+    browser: str | None = None  # Ruta de Chrome o Edge; sin valor se busca sola.
+
+
 class Settings(SettingsModel):
     figures: Figures
     nfc: NFC = Field(default_factory=NFC)
     barcode: Barcode = Field(default_factory=Barcode)
     weather: Weather
+    audio: Audio = Field(default_factory=Audio)
     channels: dict[str, Channel]
 
     @model_validator(mode="after")

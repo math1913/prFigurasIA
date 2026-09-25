@@ -233,6 +233,105 @@ def test_nfc_remove_and_repeated_same_object(settings):
     assert state.is_idle("nfc")
 
 
+def test_nfc_same_song_keeps_playing_until_it_ends(settings):
+    state = DisplayState(settings)
+    observer = NFCObserver({"41552CA3": "Prince", "21652CA3": "Beatles"}, state)
+    prince = Card()
+    observer.update(None, ([prince], []))
+    observer.update(None, ([], [prince]))
+    playing = state.snapshot("nfc")["event_id"]
+    for _ in range(2):  # Colocado y retirado otra vez mientras suena: no vuelve a empezar.
+        observer.update(None, ([prince], []))
+        observer.update(None, ([], [prince]))
+        assert state.snapshot("nfc")["event_id"] == playing
+    state.complete("nfc", playing)
+    observer.update(None, ([prince], []))
+    observer.update(None, ([], [prince]))
+    again = state.snapshot("nfc")
+    assert again["key"] == "Prince" and again["event_id"] != playing
+    beatles = Card(uid="21652CA3", reader="ACR122 1")
+    observer.update(None, ([beatles], []))
+    observer.update(None, ([], [beatles]))
+    assert state.snapshot("nfc")["key"] == "Beatles"
+
+
+def test_base_clock_and_screen_settings(settings, clock):
+    state = DisplayState(settings, clock)
+    clock.advance(7)
+    base = state.snapshot("nfc")
+    assert base["elapsed_seconds"] == 7 and base["fit"] == "cover"
+    assert base["audio_on_pc"] and not state.snapshot("figuras")["audio_on_pc"]
+    state.trigger("nfc", "Prince")
+    clock.advance(3)
+    event = state.snapshot("nfc")
+    assert event["elapsed_seconds"] == 3
+    state.complete("nfc", event["event_id"])
+    clock.advance(2)
+    assert state.snapshot("nfc")["elapsed_seconds"] == 2  # La base vuelve a empezar al terminar.
+
+
+def test_audio_page_and_demo_song_without_restart(settings):
+    app = create_app(settings=settings, demo=True)
+    displays = app.state.displays
+    with TestClient(app) as client:
+        assert client.get("/audio/nfc").status_code == 200
+        assert client.get("/audio/otro").status_code == 422
+        client.get("/api/state/nfc")
+        assert displays.audio_page_age("nfc") is None
+        client.get("/api/state/nfc?audio=1")
+        assert displays.audio_page_age("nfc") < 5
+        client.post("/api/demo/nfc", json={"key": "Prince"})
+        playing = client.get("/api/state/nfc").json()["event_id"]
+        client.post("/api/demo/nfc", json={"key": "Prince"})
+        assert client.get("/api/state/nfc").json()["event_id"] == playing
+
+
+def test_audio_browser_reopens_a_page_that_stops_polling(settings, monkeypatch, tmp_path):
+    from display_app import audio
+    clock = Clock()
+    state = DisplayState(settings, clock)
+    opened, closed = [], []
+
+    class Process:
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(audio.time, "monotonic", clock)
+    monkeypatch.setattr(audio, "find_browser", lambda configured: tmp_path / "chrome.exe")
+    monkeypatch.setattr(audio, "reachable", lambda url: True)
+    monkeypatch.setattr(audio, "launch", lambda browser, url, profile: opened.append(url) or Process())
+    monkeypatch.setattr(audio, "close", closed.append)
+    steps = iter([
+        lambda: clock.advance(40),  # 40 s sin consultar el estado: se reabre.
+        lambda: (clock.advance(5), state.saw_audio_page("nfc")),
+    ])
+
+    class Stop:
+        done = False
+
+        def is_set(self):
+            return self.done
+
+        def wait(self, seconds):
+            try:
+                next(steps)()
+            except StopIteration:
+                self.done = True
+
+    audio.run_audio(state, Stop(), port=8123)
+    assert opened == ["http://127.0.0.1:8123/audio/nfc"] * 2
+    assert len(closed) == 2  # El colgado y, al parar, el que quedaba abierto.
+    assert state.health()["hardware"]["audio"]["status"] == "ready"
+
+
+def test_find_browser(tmp_path):
+    from display_app.audio import find_browser
+    browser = tmp_path / "chrome.exe"
+    browser.write_bytes(b"")
+    assert find_browser(str(browser)) == browser
+    assert find_browser(str(tmp_path / "missing.exe")) is None
+
+
 def test_nfc_unknown_failed_read_and_reader_isolation(settings):
     state = DisplayState(settings)
     observer = NFCObserver({"41552CA3": "Prince"}, state)
@@ -314,7 +413,7 @@ def test_overlay_only_on_configured_channels(settings):
 
 
 def test_simulation_disabled_in_real_mode(settings):
-    settings.barcode.enabled = False
+    settings.barcode.enabled = settings.audio.enabled = False
     settings.figures.enabled = settings.nfc.enabled = settings.weather.enabled = False
     with TestClient(create_app(settings=settings)) as client:
         assert client.post("/api/demo/nfc", json={"key": "Prince"}).status_code == 403

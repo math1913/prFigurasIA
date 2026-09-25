@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import asyncio
+from functools import partial
 import logging
 from pathlib import Path
 import threading
@@ -10,6 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from .audio import run_audio
 from .config import ROOT, WEATHER_CODES, load_settings
 from .figures import run_figures
 from .barcode import handle_scan, load_mapping, run_barcode
@@ -29,7 +31,7 @@ class Completion(BaseModel):
     event_id: str
 
 
-def create_app(config_path: Path | None = None, demo=False, settings=None):
+def create_app(config_path: Path | None = None, demo=False, settings=None, port=8002):
     settings = settings or load_settings(config_path)
     state = DisplayState(settings)
 
@@ -42,6 +44,7 @@ def create_app(config_path: Path | None = None, demo=False, settings=None):
             ("barcode", settings.barcode, run_barcode),
             ("nfc", settings.nfc, run_nfc),
             ("weather", settings.weather, run_weather),
+            ("audio", settings.audio, partial(run_audio, port=port)),
         ]:
             if demo or not config.enabled:
                 state.set_hardware(channel, "demo" if demo else "disabled",
@@ -67,11 +70,11 @@ def create_app(config_path: Path | None = None, demo=False, settings=None):
     def index():
         return FileResponse(ROOT / "web" / "index.html")
 
-    def screen(name, request):
+    def screen(name, request, page=None):
         # Identifica al reproductor que abre la pantalla: su versión de Chromium explica los fallos de compatibilidad.
         log.info("Pantalla %s abierta desde %s · %s", name, request.client.host if request.client else "?",
                  request.headers.get("user-agent", "sin User-Agent"))
-        return FileResponse(ROOT / "web" / f"{name}.html")
+        return FileResponse(ROOT / "web" / f"{page or name}.html")
 
     @app.get("/figuras", include_in_schema=False)
     def figures_page(request: Request):
@@ -85,9 +88,15 @@ def create_app(config_path: Path | None = None, demo=False, settings=None):
     def overlay_page(request: Request):
         return screen("overlay", request)
 
+    @app.get("/audio/{channel}", include_in_schema=False)
+    def audio_page(channel: ChannelName, request: Request):
+        return screen(f"audio de {channel}", request, page="audio")
+
     @app.get("/api/state/{channel}")
-    def get_state(channel: ChannelName, response: Response):
+    def get_state(channel: ChannelName, response: Response, audio: bool = False):
         response.headers["Cache-Control"] = "no-store"
+        if audio:
+            state.saw_audio_page(channel)
         return state.snapshot(channel)
 
     @app.post("/api/complete/{channel}")
@@ -143,7 +152,8 @@ def create_app(config_path: Path | None = None, demo=False, settings=None):
             raise HTTPException(403, "Inicia con --demo para simular acciones")
         if event.key not in settings.channels[channel].events:
             raise HTTPException(404, "Contenido desconocido")
-        state.trigger(channel, event.key)
+        # Como al retirar un objeto real: su canción no vuelve a empezar si ya suena.
+        state.trigger(channel, event.key, restart=channel != "nfc")
         return {"accepted": True}
 
     app.mount("/static", StaticFiles(directory=ROOT / "web"), name="static")

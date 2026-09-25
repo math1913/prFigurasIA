@@ -87,6 +87,7 @@
     "figuras": {
       "max_event_seconds": 3600,
       "placeholder_seconds": 5,
+      "fit": "cover",
       "base": {
         "title": "Cada figura tiene una historia",
         "src": "/media/ventana/despejado.mp4"
@@ -185,6 +186,9 @@
     "nfc": {
       "max_event_seconds": 3600,
       "placeholder_seconds": 5,
+      "fit": "cover",
+      "audio_on_pc": true,
+      "audio_delay_ms": 0,
       "base": {
         "title": "Una nueva historia en tus manos",
         "src": "/media/pantalla/bigBangIntro.mp4",
@@ -233,5 +237,9 @@
     "parity": "N",
     "stopbits": 1,
     "timeout_seconds": 1
+  },
+  "audio": {
+    "enabled": true,
+    "browser": null
   }
 }

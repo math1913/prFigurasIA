@@ -215,3 +215,6 @@ runs/
 /media/*
 !/media/README.md
 /media-dist/
+
+# Perfil del navegador sin ventana que pone el sonido en el PC (display_app/audio.py)
+/.audio-browser/
