@@ -14,7 +14,7 @@ const snapshot = (overrides = {}) => ({
 });
 
 function harness(initial) {
-  const env = {state: initial, offline: false, blocked: false, completions: [], timers: new Map()};
+  const env = {state: initial, offline: false, blocked: false, completions: [], timers: new Map(), siblings: []};
   let timerId = 0;
   class Element {
     constructor(tag) {
@@ -25,6 +25,8 @@ function harness(initial) {
     removeAttribute(key) { delete this.attributes[key]; }
     append(...children) { this.children.push(...children); }
     replaceChildren(...children) { this.children = children; }
+    after(...nodes) { env.siblings.push(...nodes); }
+    remove() { this.removed = true; }
     addEventListener(name, handler) { (this.listeners[name] ??= []).push(handler); }
     emit(name) { for (const handler of this.listeners[name] ?? []) handler(); }
     pause() { this.paused = true; }
@@ -144,6 +146,21 @@ test("el tiempo de protección devuelve la base sin respuesta del servidor", asy
   env.offline = true;
   [...env.timers.values()].find(timer => timer.ms === 1000).fn(); await flush();
   assert.equal(env.video().loop, true);
+});
+
+test("superpone los indicadores NFC solo si la pantalla lo tiene configurado", async () => {
+  const env = harness(snapshot({overlay: true})); await flush();
+  assert.equal(env.siblings.length, 1);
+  const [frame] = env.siblings;
+  assert.equal(frame.tag, "iframe");
+  assert.equal(frame.src, "/overlay");
+  await env.poll();
+  assert.equal(env.siblings.length, 1);
+  env.state = snapshot({session: "restarted", overlay: false});
+  await env.poll();
+  assert.equal(frame.removed, true);
+  const plain = harness(snapshot()); await flush();
+  assert.deepEqual(plain.siblings, []);
 });
 
 test("un reinicio del servidor actualiza la pantalla aunque coincida la revisión", async () => {

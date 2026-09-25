@@ -1,0 +1,8 @@
+/* Mismo color-scheme que las pantallas: si no coincide, el navegador pinta el iframe opaco. */
+:root { color-scheme: dark; background: transparent; }
+html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
+#indicator-list { position: fixed; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+/* Oculto por defecto; overlay.js añade present mientras el lector lo detecta. Sin animación. */
+.indicator { display: none; }
+.indicator.present { display: block; }
+.indicator img { display: block; min-width: 50px; width: 3dvw; }

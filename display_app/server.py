@@ -75,6 +75,10 @@ def create_app(config_path: Path | None = None, demo=False, settings=None):
     def nfc_page():
         return FileResponse(ROOT / "web" / "nfc.html")
 
+    @app.get("/overlay", include_in_schema=False)
+    def overlay_page():
+        return FileResponse(ROOT / "web" / "overlay.html")
+
     @app.get("/api/state/{channel}")
     def get_state(channel: ChannelName, response: Response):
         response.headers["Cache-Control"] = "no-store"

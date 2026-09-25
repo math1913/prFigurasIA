@@ -37,6 +37,9 @@
       "Jackson",
       "Prince",
       "Superman"
+    ],
+    "overlay_channels": [
+      "nfc"
     ]
   },
   "weather": {

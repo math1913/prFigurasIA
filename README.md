@@ -1,6 +1,6 @@
 # BigBang · Figuras, NFC y pantallas HTML
 
-Una aplicación Python ejecuta el detector YOLO, el escáner de códigos de barras, los lectores NFC y el clima en el mismo PC. Sirve dos pantallas HTML independientes, reproduce vídeos locales y ya no lee ni escribe `biomax.xml` o `temp.xml` ni necesita Admira. Cámara y códigos de barras comparten `/figuras`; NFC utiliza `/nfc`.
+Una aplicación Python ejecuta el detector YOLO, el escáner de códigos de barras, los lectores NFC y el clima en el mismo PC. Sirve dos pantallas HTML independientes, reproduce vídeos locales y ya no lee ni escribe `biomax.xml` o `temp.xml` ni necesita Admira. Cámara y códigos de barras comparten `/figuras`; NFC utiliza `/nfc`, con los indicadores de `/overlay` superpuestos.
 
 La integración utiliza `prFigurasIA` como repositorio principal e incorpora los 40 UID de `NFC-ACR122/aliases.json`. El repositorio NFC original no necesita ejecutarse. Se conservan los modelos `.pt` y los scripts de entrenamiento.
 
@@ -44,6 +44,7 @@ No hace falta activar el entorno virtual. El desarrollo y las pruebas web se han
 | http://localhost:8002/ | Estado de los dispositivos y accesos a las pantallas |
 | http://localhost:8002/figuras | Pantalla de figuras |
 | http://localhost:8002/nfc | Pantalla de NFC |
+| http://localhost:8002/overlay | Indicadores NFC con fondo transparente, superpuestos a una pantalla |
 | http://localhost:8002/objetos | API de presencia NFC, conserva los nombres y el puerto original |
 
 Abre cada pantalla en una ventana del navegador, muévela al monitor correspondiente y pulsa F11 o el botón de pantalla completa. Las páginas necesitan el servidor en ejecución; no se abren directamente como archivos. Detén la aplicación con Ctrl+C.
@@ -142,6 +143,14 @@ El lector requiere PC/SC y `pyscard`. Si el sistema no reconoce el ACR122U, cons
 
 Si aparece el error `0x8010001D`, Windows informa de que el servicio de tarjetas inteligentes no está ejecutándose. Comprueba el lector y el servicio «Tarjeta inteligente» en el PC del montaje. La aplicación reintenta y mantiene las pantallas disponibles.
 
+#### Indicadores superpuestos
+
+Integra el overlay de la rama `controlNFC` de NFC-ACR122 en una página aparte, `/overlay`, con fondo transparente. Muestra **fijo** el logo de cada libro mientras un lector lo detecta y lo oculta al retirarlo; ya no parpadea. Si el lector no está disponible o se pierde la conexión con el servidor, se ocultan todos los logos. Se actualiza cada 500 ms a partir de `/objetos`, sin procesos ni archivos generados adicionales.
+
+`nfc.overlay_channels` decide sobre qué pantallas se superpone: `["nfc"]` por defecto, `["figuras"]`, ambas o `[]` para ninguna. La pantalla lo coloca encima del vídeo sin bloquear los botones y lo retira si se desactiva al reiniciar. Para usarlo en otro sistema de capas, abre directamente `/overlay`.
+
+Los logos están en `web/img/` y el `id` de cada indicador de `web/overlay.html` coincide con su alias de `aliases.json`. En `--demo` no aparece ningún logo, porque no hay lectores que detecten libros.
+
 ### Clima
 
 El antiguo `weatherReader.py` está integrado en `display_app/weather.py`. Se utiliza la [API de clima actual de OpenWeather](https://openweathermap.org/current) con la misma clasificación del proyecto original. La API key se lee de una variable de entorno y no se guarda en el código:
@@ -223,10 +232,10 @@ Las dos bases y los siete estados del clima ya tienen rutas asignadas con los v�
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pytest -q
-node --test tests/player.test.cjs
+node --test tests/player.test.cjs tests/overlay.test.cjs
 ```
 
-Node solo es necesario para las pruebas JavaScript, no para ejecutar la aplicación. Estas pruebas cubren eventos simultáneos, interrupciones, fin de vídeo, retorno a la base, lecturas NFC repetidas y fallidas, reconexión, clasificación del clima y estabilidad de la detección. Las pruebas del reproductor simulan eventos multimedia: no sustituyen comprobar tus vídeos reales en el navegador y con la cámara/lectores del montaje.
+Node solo es necesario para las pruebas JavaScript, no para ejecutar la aplicación. Estas pruebas cubren eventos simultáneos, interrupciones, fin de vídeo, retorno a la base, lecturas NFC repetidas y fallidas, reconexión, clasificación del clima, estabilidad de la detección y los indicadores NFC superpuestos. Las pruebas del reproductor simulan eventos multimedia: no sustituyen comprobar tus vídeos reales en el navegador y con la cámara/lectores del montaje.
 
 La organización principal es:
 
@@ -248,6 +257,8 @@ web/
   figuras.html          Pantalla de figuras
   nfc.html              Pantalla de NFC
   player.js             Reproductor compartido
+  overlay.html          Indicadores NFC superpuestos (overlay.js, overlay.css)
+  img/                  Logos de los libros NFC
   index.html            Panel de control y simulación
 media/                  Tus vídeos locales
 scripts/media.py        Preparar, verificar e instalar el ZIP

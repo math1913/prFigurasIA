@@ -9,6 +9,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #b9ed80; outline-offs
 .display[data-channel="nfc"] { --accent: #a6caff; }
 #stage, #stage > video, .placeholder { width: 100vw; height: 100vh; height: 100dvh; }
 #stage > video { display: block; object-fit: contain; background: #000; }
+.overlay-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; pointer-events: none; }
 .placeholder { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 7vh 7vw 10vh; background: radial-gradient(ellipse at 85% 20%, #2c3a2544, transparent 60%), #101310; }
 [data-channel="nfc"] .placeholder { background: radial-gradient(ellipse at 85% 20%, #243c624d, transparent 60%), #101218; }
 .brand { position: absolute; top: 7vh; left: 7vw; font-weight: 800; font-size: clamp(16px, 2vw, 28px); letter-spacing: .15em; }
@@ -38,6 +39,7 @@ body:hover .fullscreen, .fullscreen:focus { opacity: .65; }
 .screen-card p { color: #a6aea1; line-height: 1.6; min-height: 52px; }
 .screen-link { display: inline-block; margin-top: 14px; text-decoration: none; color: #182013; background: #c5ef90; border-radius: 8px; padding: 12px 18px; font-weight: 600; }
 .nfc .screen-link { background: #a6caff; color: #141e2d; }
+.nfc .screen-link.secondary { margin-left: 8px; background: transparent; color: #a6caff; box-shadow: inset 0 0 0 1px #a6caff66; }
 .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 24px 0; }
 .status-item { padding: 18px; border: 1px solid #ffffff18; border-radius: 10px; font-size: 14px; min-width: 0; }
 .status-item strong { display: block; margin-bottom: 10px; font-weight: 500; }

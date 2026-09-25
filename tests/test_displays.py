@@ -261,7 +261,7 @@ def test_aliases_integrated_without_losses(settings):
 
 def test_http_pages_demo_completion_and_cache(settings):
     with TestClient(create_app(settings=settings, demo=True)) as client:
-        for path in ["/", "/figuras", "/nfc", "/static/player.js"]:
+        for path in ["/", "/figuras", "/nfc", "/overlay", "/static/player.js"]:
             assert client.get(path).status_code == 200
         assert client.get("/api/status").json()["demo"]
         assert client.get("/objetos").status_code == 200
@@ -280,6 +280,30 @@ def test_http_pages_demo_completion_and_cache(settings):
         assert client.post("/api/demo/nfc", json={"key": "unknown"}).status_code == 404
         assert client.get("/api/state/unknown").status_code == 422
         assert client.get("/media/../config.json").status_code == 404
+
+
+def test_overlay_page_logos_and_presence(settings):
+    app = create_app(settings=settings, demo=True)
+    with TestClient(app) as client:
+        html = client.get("/overlay").text
+        for alias in settings.nfc.monitored_objects:
+            logo = f"/static/img/{alias.lower()}.png"
+            assert f'id="{alias}"' in html and logo in html
+            assert client.get(logo).headers["content-type"] == "image/png"
+        assert client.get("/static/overlay.js").status_code == 200
+        assert client.get("/objetos").json() == dict.fromkeys(settings.nfc.monitored_objects, False)
+        app.state.displays.set_present({("ACR122 0", (1, 2, 3)): {"uid": "41552CA3", "alias": "Prince"}})
+        present = client.get("/objetos").json()
+        assert present.pop("Prince") and not any(present.values())
+
+
+def test_overlay_only_on_configured_channels(settings):
+    state = DisplayState(settings)
+    assert state.snapshot("nfc")["overlay"] and not state.snapshot("figuras")["overlay"]
+    settings.nfc.overlay_channels = ["figuras"]
+    assert state.snapshot("figuras")["overlay"] and not state.snapshot("nfc")["overlay"]
+    settings.nfc.overlay_channels = []
+    assert not state.snapshot("figuras")["overlay"] and not state.snapshot("nfc")["overlay"]
 
 
 def test_simulation_disabled_in_real_mode(settings):

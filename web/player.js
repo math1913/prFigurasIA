@@ -11,6 +11,7 @@ let pendingCompletion = null;
 let finishedEvent = null;
 let activeVideo = null;
 let renderVersion = 0;
+let overlay = null;
 
 async function request(path, options = {}) {
   const response = await fetch(path, {cache: "no-store", signal: AbortSignal.timeout(2000), ...options});
@@ -108,8 +109,25 @@ function finish(id) {
   sendCompletion().catch(() => { connection.hidden = false; });
 }
 
+// Indicadores NFC de /overlay sobre el vídeo, según nfc.overlay_channels.
+function syncOverlay(enabled) {
+  if (Boolean(enabled) === Boolean(overlay)) return;
+  if (overlay) {
+    overlay.remove();
+    overlay = null;
+    return;
+  }
+  overlay = document.createElement("iframe");
+  overlay.className = "overlay-frame";
+  overlay.src = "/overlay";
+  overlay.title = "Indicadores NFC";
+  overlay.tabIndex = -1;
+  stage.after(overlay);
+}
+
 function applySnapshot(state) {
   latest = state;
+  syncOverlay(state.overlay);
   const nextToken = `${state.session}:${state.revision}`;
   if (nextToken === token) return;
   token = nextToken;

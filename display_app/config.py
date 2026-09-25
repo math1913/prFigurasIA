@@ -50,6 +50,8 @@ class NFC(SettingsModel):
     aliases_file: str = "aliases.json"
     trigger: Literal["insert", "remove"] = "remove"
     monitored_objects: list[str] = ["Beatles", "Jackson", "Prince", "Superman"]
+    # Pantallas sobre las que se superpone /overlay con los logos detectados.
+    overlay_channels: list[Literal["figuras", "nfc"]] = ["nfc"]
 
 
 class Barcode(SettingsModel):

@@ -90,6 +90,7 @@ class DisplayState:
                 "content": (config.events[active["key"]] if active else self.base_video(channel)).model_dump(),
                 "base": self.base_video(channel).model_dump(),
                 "fallback_base": config.base.model_dump(),
+                "overlay": channel in self.settings.nfc.overlay_channels,
             }
 
     def set_hardware(self, channel, status, detail):
