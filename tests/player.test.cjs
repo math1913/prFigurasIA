@@ -31,17 +31,22 @@ function harness(initial) {
     emit(name) { for (const handler of this.listeners[name] ?? []) handler(); }
     pause() { this.paused = true; }
     load() {}
-    play() { return env.blocked ? Promise.reject(new Error("NotAllowed")) : Promise.resolve(); }
+    play() {
+      // Como los navegadores: sin interacción se bloquea el sonido, no la reproducción silenciada.
+      this.plays = (this.plays ?? 0) + 1;
+      if (env.blocked && !this.muted) return Promise.reject(new Error("NotAllowed"));
+      this.paused = false;
+      return Promise.resolve();
+    }
   }
-  const elements = Object.fromEntries(["stage", "connection", "enable-playback", "fullscreen"]
-    .map(name => [name, new Element(name)]));
+  const elements = Object.fromEntries(["stage", "connection"].map(name => [name, new Element(name)]));
   const context = vm.createContext({
     document: {
       body: {dataset: {channel: "figuras"}},
       querySelector: selector => elements[selector.slice(1)],
       createElement: tag => new Element(tag),
     },
-    console: {error() {}}, AbortSignal,
+    console: {error() {}, warn() {}}, AbortSignal,
     setTimeout: (fn, ms) => { const id = ++timerId; env.timers.set(id, {fn, ms}); return id; },
     clearTimeout: id => env.timers.delete(id),
     fetch: async (url, options) => {
@@ -131,14 +136,26 @@ test("una recarga retoma el vídeo por el tiempo transcurrido", async () => {
   assert.deepEqual(late.completions, ["late"]);
 });
 
-test("ofrece iniciar la reproducción si el navegador bloquea autoplay", async () => {
-  const env = harness(snapshot()); await flush();
+test("si el navegador bloquea el sonido, sigue reproduciendo sin sonido", async () => {
+  const env = harness(snapshot({content: {...base, muted: false}})); await flush();
   env.blocked = true;
   env.video().emit("loadedmetadata"); await flush();
-  assert.equal(env.elements["enable-playback"].hidden, false);
-  env.blocked = false;
-  env.elements["enable-playback"].emit("click"); await flush();
-  assert.equal(env.elements["enable-playback"].hidden, true);
+  assert.equal(env.video().muted, true);
+  assert.equal(env.video().paused, false);
+});
+
+test("un vídeo en pausa se reanuda solo, salvo si ya terminó", async () => {
+  const env = harness(snapshot()); await flush();
+  const video = env.video();
+  video.emit("loadedmetadata"); await flush();
+  assert.equal(video.plays, 1);
+  Object.assign(video, {paused: true, readyState: 4});
+  await env.poll();
+  assert.equal(video.plays, 2);
+  assert.equal(video.paused, false);
+  Object.assign(video, {paused: true, ended: true});
+  await env.poll();
+  assert.equal(video.plays, 2);
 });
 
 test("el tiempo de protección devuelve la base sin respuesta del servidor", async () => {

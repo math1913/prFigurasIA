@@ -3,7 +3,6 @@
 const channel = document.body.dataset.channel;
 const stage = document.querySelector("#stage");
 const connection = document.querySelector("#connection");
-const playbackButton = document.querySelector("#enable-playback");
 let token = null;
 let latest = null;
 let expiryTimer = null;
@@ -50,7 +49,6 @@ function render(content, state, fallback = null) {
     activeVideo.load();
     activeVideo = null;
   }
-  playbackButton.hidden = true;
   if (!content.src) {
     stage.replaceChildren(placeholder(content, state.mode === "event"));
     return;
@@ -82,11 +80,19 @@ function render(content, state, fallback = null) {
       }
       if (state.elapsed_seconds > 0.5) video.currentTime = state.elapsed_seconds;
     }
-    video.play().catch(() => {
-      if (version === renderVersion) playbackButton.hidden = false;
-    });
+    start(video);
   });
   stage.replaceChildren(video);
+}
+
+// Modo kiosco, sin botones: si el navegador bloquea el sonido, se reproduce sin sonido.
+function start(video) {
+  video.play().catch(() => {
+    if (video !== activeVideo || video.muted) return;
+    console.warn("El navegador bloquea el sonido; se reproduce sin sonido", video.src);
+    video.muted = true;
+    start(video);
+  });
 }
 
 async function sendCompletion() {
@@ -147,22 +153,11 @@ async function poll() {
   } catch (error) {
     connection.hidden = false;
   } finally {
+    // Nada debe quedarse en pausa (p. ej., tras un cambio de salida de audio): se reanuda.
+    if (activeVideo?.paused && !activeVideo.ended && activeVideo.readyState >= 2) start(activeVideo);
     setTimeout(poll, 250);
   }
 }
 
-playbackButton.addEventListener("click", async () => {
-  try {
-    await activeVideo?.play();
-    playbackButton.hidden = true;
-  } catch {
-    playbackButton.textContent = "Reintentar reproducción";
-  }
-});
-document.querySelector("#fullscreen").addEventListener("click", () => {
-  const action = document.fullscreenElement
-    ? document.exitFullscreen() : document.documentElement.requestFullscreen();
-  action.catch(() => {});
-});
 stage.replaceChildren(placeholder({title: "Todo empieza con una historia"}, false));
 poll();

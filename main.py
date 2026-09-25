@@ -21,7 +21,8 @@ def main():
     print(f"Figuras: http://localhost:{args.port}/figuras")
     print(f"NFC:     http://localhost:{args.port}/nfc")
     print(f"Control: http://localhost:{args.port}/")
-    uvicorn.run(app, host=args.host, port=args.port)
+    # Sin registro de peticiones: las pantallas consultan el estado cada 250 ms y taparían los mensajes útiles.
+    uvicorn.run(app, host=args.host, port=args.port, access_log=False)
 
 
 if __name__ == "__main__":

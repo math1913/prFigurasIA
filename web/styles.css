@@ -5,7 +5,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 button { font: inherit; cursor: pointer; }
 button:focus-visible, a:focus-visible { outline: 3px solid #b9ed80; outline-offset: 5px; }
 [hidden] { display: none !important; }
-.display { --accent: #c5ef90; overflow: hidden; }
+.display { --accent: #c5ef90; overflow: hidden; cursor: none; }
 .display[data-channel="nfc"] { --accent: #a6caff; }
 #stage, #stage > video, .placeholder { width: 100vw; height: 100vh; height: 100dvh; }
 #stage > video { display: block; object-fit: contain; background: #000; }
@@ -21,10 +21,7 @@ h1 { max-width: 1000px; font-size: clamp(42px, 7.4vw, 124px); font-weight: 500; 
 .orbit::after { inset: 23%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 17%, transparent), transparent 70%); }
 .is-event .eyebrow { color: #f4f4ed; }
 .is-event h1 { color: var(--accent); }
-.fullscreen { position: fixed; bottom: 20px; right: 24px; color: #fff; background: #15151588; border: 1px solid #ffffff30; border-radius: 8px; width: 42px; height: 42px; font-size: 24px; opacity: 0; transition: opacity .2s; }
-body:hover .fullscreen, .fullscreen:focus { opacity: .65; }
 .connection { position: fixed; top: 18px; right: 20px; padding: 8px 14px; background: #362d18; border: 1px solid #735b2c; color: #f5d594; border-radius: 30px; font-size: 13px; }
-.playback-button { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 14px 24px; border: 0; border-radius: 30px; background: #f4f4ed; color: #171a16; }
 .control { max-width: 1180px; margin: auto; padding: 42px 32px 64px; }
 .control header { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-bottom: 34px; border-bottom: 1px solid #ffffff18; }
 .wordmark { font-size: 18px; letter-spacing: .16em; font-weight: 800; }

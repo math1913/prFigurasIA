@@ -35,7 +35,7 @@ Si todavía no tienes clave, omite la primera línea: la ventana utilizará `des
 
 Para probar primero sin dispositivos ni API, usa `main.py --demo`. Abre el panel, las dos pantallas y pulsa los botones de prueba; los botones del clima permiten alternar lluvia y despejado. Detén la demo con Ctrl+C antes de arrancar el modo real. En el montaje comprueba una figura, un código de barras y la retirada de un objeto NFC; verifica el retorno a sus bases y que otra acción interrumpe el vídeo del mismo canal.
 
-El sonido sigue desactivado por defecto (`muted: true`). Para oír las canciones, añade `"muted": false` a los vídeos NFC que quieras escuchar en `config.json`, reinicia y pulsa «Iniciar reproducción» si el navegador lo solicita.
+El sonido sigue desactivado por defecto (`muted: true`). Para oír las canciones, añade `"muted": false` a los vídeos NFC que quieras escuchar en `config.json` y reinicia. El software de pantallas debe permitir la reproducción automática con sonido; si no, los vídeos se reproducen sin sonido (consulta «Modo kiosco»).
 
 No hace falta activar el entorno virtual. El desarrollo y las pruebas web se han realizado con Python 3.13.
 
@@ -47,9 +47,34 @@ No hace falta activar el entorno virtual. El desarrollo y las pruebas web se han
 | http://localhost:8002/overlay | Indicadores NFC con fondo transparente, superpuestos a una pantalla |
 | http://localhost:8002/objetos | API de presencia NFC, conserva los nombres y el puerto original |
 
-Abre cada pantalla en una ventana del navegador, muévela al monitor correspondiente y pulsa F11 o el botón de pantalla completa. Las páginas necesitan el servidor en ejecución; no se abren directamente como archivos. Detén la aplicación con Ctrl+C.
+Muestra cada pantalla a pantalla completa en su monitor con el software de pantallas; para una prueba rápida en un navegador, usa F11. Las páginas necesitan el servidor en ejecución; no se abren directamente como archivos. Detén la aplicación con Ctrl+C.
 
-El servidor escucha en `127.0.0.1:8002`. Puedes cambiar el puerto con `--port 8003`. Si necesitas pantallas en otros ordenadores de la red, configura explícitamente `--host 0.0.0.0`; no hay autenticación para ese modo. Usa una sola instancia: varias instancias competirían por la cámara y los lectores.
+`main.py` escucha en `127.0.0.1:8002`: solo responde a `localhost`, ni siquiera a la IP del propio PC. Puedes cambiar el puerto con `--port 8003`. Para acceder desde la red local, arranca con `--host 0.0.0.0`, como hace `iniciar_bigbang.bat`; no hay autenticación para ese modo. Usa una sola instancia: varias instancias competirían por la cámara y los lectores.
+
+### Arranque automático
+
+`main.py` ejecuta todo en un único proceso: servidor web, cámara, escáner, lectores NFC y clima. No hay que arrancar nada más. Desactiva las tareas o accesos directos antiguos de los repositorios originales, como `start_barcode.bat`.
+
+`iniciar_bigbang.bat` arranca `main.py` con el entorno virtual y lo vuelve a arrancar a los 10 segundos si se cierra. Si ya hay una instancia en el puerto 8002, no abre otra. Deja constancia de cada arranque y cierre en `logs/arranque.log`; los mensajes de la aplicación aparecen en su ventana, «BigBang». Para detenerlo, cierra esa ventana. El registro de peticiones HTTP está desactivado para que las consultas de las pantallas no tapen esos mensajes.
+
+Para la API del clima, crea un archivo `.env` junto a `main.py` con la línea `OPENWEATHER_API_KEY=TU_CLAVE`. El `.bat` lo lee y Git lo ignora.
+
+El `.bat` escucha en toda la red local (`HOST=0.0.0.0`): el panel y las pantallas se abren desde otros equipos con `http://IP-DEL-PC:8002/`, por ejemplo http://192.168.1.13:8002/. Para que entren, el firewall de Windows debe permitir el puerto. Créale una regla una sola vez, en PowerShell como administrador:
+
+```powershell
+New-NetFirewallRule -DisplayName "BigBang 8002" -Direction Inbound -Protocol TCP -LocalPort 8002 -Action Allow -Profile Private,Domain
+```
+
+La regla solo se aplica si Windows considera la red privada. Si aparece como pública, cámbiala en Configuración > Red e Internet > Ethernet > Tipo de perfil de red. Si al arrancar Windows pregunta por Python, pulsa «Permitir acceso». Si alguien canceló ese aviso, Windows habrá creado reglas que bloquean `python.exe`; esas reglas tienen prioridad, así que bórralas en «Firewall de Windows Defender con seguridad avanzada» > «Reglas de entrada».
+
+Para que arranque al encender el PC, crea una tarea en el Programador de tareas:
+
+1. **Desencadenador:** «Al iniciar la sesión» del usuario del montaje, con el inicio de sesión automático de Windows activado. En la sesión del usuario, la cámara y los lectores funcionan con menos problemas que con «Al iniciar el sistema».
+2. **Acción:** «Iniciar un programa», con la ruta completa de `iniciar_bigbang.bat`.
+3. **General:** «Ejecutar solo cuando el usuario haya iniciado sesión».
+4. **Configuración:** desmarca «Detener la tarea si se ejecuta durante más de 3 días», que viene marcada y la cerraría a los tres días. Mantén «No iniciar una instancia nueva».
+
+El software de pantallas necesita que el servidor ya responda al abrir las URL. Si arranca antes que la tarea, añade unos segundos de retraso o activa su recarga automática.
 
 ## Demostración sin dispositivos
 
@@ -82,7 +107,7 @@ Por ejemplo, este objeto configura el contenido de `channels.nfc.events.Prince`:
 
 `media/nfc/prince.mp4` debe existir. Usa vídeos que tu navegador pueda reproducir; MP4 con H.264 es una opción habitual. El reproductor mantiene las proporciones y usa bandas negras si el formato no coincide con la pantalla.
 
-`muted` es `true` por defecto para permitir reproducción automática. Si lo cambias a `false`, el navegador puede pedir una interacción inicial: la pantalla mostrará «Iniciar reproducción». Los navegadores aplican sus propias reglas de autoplay.
+`muted` es `true` por defecto para permitir reproducción automática. Con `false`, muchos navegadores solo reproducen con sonido tras una interacción del usuario. Como las pantallas no tienen botones, en ese caso el vídeo se reproduce igualmente, sin sonido, y la consola del navegador lo avisa. Para que suene, permite la reproducción automática con sonido en el software de pantallas; en Chrome o Edge, con el argumento `--autoplay-policy=no-user-gesture-required`.
 
 Con `src: null` se muestra una pantalla provisional con el título. Una acción sin vídeo dura `placeholder_seconds` (5 segundos por defecto). Un vídeo configurado termina con su evento real `ended`; **no usa una duración fija de 20 segundos**. `max_event_seconds` (3600 por defecto) es un límite de recuperación para vídeos bloqueados o pantallas ausentes: ajústalo por encima de la duración del vídeo más largo.
 
@@ -97,6 +122,7 @@ Si un vídeo de acción no se puede cargar, se vuelve a la base. Si falla el ví
 - Cada acción tiene un identificador: un aviso de fin tardío del vídeo anterior no puede cerrar el vídeo nuevo.
 - Las pantallas consultan el estado cada 250 ms y reintentan automáticamente si se corta la conexión. Al recargar una pantalla, retoma el evento vigente por su tiempo transcurrido. Si el vídeo termina durante una desconexión, vuelve a la base localmente y confirma el fin cuando recupera conexión.
 - El estado está en memoria: al reiniciar la aplicación, comienza desde la base.
+- **Modo kiosco**, para funcionar 24 horas: las pantallas no tienen botones ni cursor, el vídeo empieza solo y, si algo lo pausa (por ejemplo, un cambio de salida de audio), se reanuda.
 
 ### Figuras
 
@@ -241,6 +267,7 @@ La organización principal es:
 
 ```text
 main.py                 Arranque único
+iniciar_bigbang.bat     Arranque automático con reinicio (tarea programada)
 config.json             Dispositivos, clima y vídeos
 aliases.json            UID NFC → nombre
 barcode_id.json         Código de barras → contenido de figuras
