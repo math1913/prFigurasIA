@@ -122,7 +122,15 @@ Si un vídeo de acción no se puede cargar, se vuelve a la base. Si falla el ví
 - Cada acción tiene un identificador: un aviso de fin tardío del vídeo anterior no puede cerrar el vídeo nuevo.
 - Las pantallas consultan el estado cada 250 ms y reintentan automáticamente si se corta la conexión. Al recargar una pantalla, retoma el evento vigente por su tiempo transcurrido. Si el vídeo termina durante una desconexión, vuelve a la base localmente y confirma el fin cuando recupera conexión.
 - El estado está en memoria: al reiniciar la aplicación, comienza desde la base.
-- **Modo kiosco**, para funcionar 24 horas: las pantallas no tienen botones ni cursor, el vídeo empieza solo y, si algo lo pausa (por ejemplo, un cambio de salida de audio), se reanuda.
+- **Modo kiosco**, para funcionar 24 horas: las pantallas no tienen botones ni cursor, el vídeo empieza solo y, si algo lo pausa (por ejemplo, un cambio de salida de audio), se reanuda. Un vídeo de acción que en 12 segundos ni arranca ni da error se abandona y vuelve la base; si la base no carga, se vuelve a pedir cada 15 segundos.
+
+### Reproductor de cartelería (Admira)
+
+Las pantallas se muestran en el reproductor de Admira, que en Android usa un Chromium antiguo. Por eso `player.js` y `overlay.js` están escritos en ES5: sin `const`/`let`, funciones flecha, `async`, `fetch` ni `?.`, y con `XMLHttpRequest`. El CSS de las pantallas evita `inset`, `dvh`, `aspect-ratio`, `gap` en flex, `color-mix` y los colores de 8 cifras. Son las mismas reglas que los contenidos de cartelería de controlStore. Una sola sintaxis nueva impide que el script arranque y deja la pantalla en negro, así que las pruebas JavaScript lo comprueban. El panel de control (`control.js`) no tiene esa restricción.
+
+Cada vez que un dispositivo abre una pantalla, la consola anota su navegador, por ejemplo `Pantalla nfc abierta desde 192.168.1.50 · Mozilla/5.0 (Linux; Android …) Chrome/…`. Así se sabe qué versión de Chromium tiene el reproductor.
+
+Los vídeos actuales son H.264 de 8 bits, lo que decodifica ese hardware. Si alguno va a tirones, los primeros candidatos a pasar a 30 fps son los de 50-60 fps: tres de NFC en 1080p y varios de figuras. Muchos tienen el índice (`moov`) al final del archivo; `ffmpeg -i entrada.mp4 -c copy -movflags +faststart salida.mp4` lo mueve al principio sin recodificar, y el vídeo arranca antes.
 
 ### Figuras
 

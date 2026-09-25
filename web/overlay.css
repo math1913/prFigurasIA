@@ -1,8 +1,9 @@
 /* Mismo color-scheme que las pantallas: si no coincide, el navegador pinta el iframe opaco. */
 :root { color-scheme: dark; background: transparent; }
-html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: transparent; cursor: none; }
-#indicator-list { position: fixed; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; cursor: none; }
+/* Sin flex, gap ni dvw: el reproductor de cartelería usa un Chromium antiguo. */
+#indicator-list { position: fixed; top: 20px; left: 20px; pointer-events: none; }
 /* Oculto por defecto; overlay.js añade present mientras el lector lo detecta. Sin animación. */
 .indicator { display: none; }
-.indicator.present { display: block; }
-.indicator img { display: block; min-width: 50px; width: 3dvw; }
+.indicator.present { display: block; margin-bottom: 10px; }
+.indicator img { display: block; min-width: 50px; width: 3vw; }

@@ -14,52 +14,72 @@ const snapshot = (overrides = {}) => ({
 });
 
 function harness(initial) {
-  const env = {state: initial, offline: false, blocked: false, completions: [], timers: new Map(), siblings: []};
+  const env = {state: initial, offline: false, blocked: false, legacy: false, completions: [], timers: new Map(), siblings: []};
   let timerId = 0;
   class Element {
     constructor(tag) {
-      this.tag = tag; this.children = []; this.listeners = {}; this.hidden = true;
+      this.tag = tag; this.children = []; this.listeners = {}; this.hidden = true; this.paused = true;
       this.duration = 12; this.currentTime = 0; this.dataset = {}; this.attributes = {};
     }
+    get firstChild() { return this.children[0] ?? null; }
     setAttribute(key, value) { this.attributes[key] = value; }
     removeAttribute(key) { delete this.attributes[key]; }
-    append(...children) { this.children.push(...children); }
-    replaceChildren(...children) { this.children = children; }
-    after(...nodes) { env.siblings.push(...nodes); }
-    remove() { this.removed = true; }
+    appendChild(child) { this.children.push(child); child.parentNode = this; return child; }
+    removeChild(child) {
+      const index = this.children.indexOf(child);
+      if (index >= 0) this.children.splice(index, 1);
+      child.removed = true;
+      return child;
+    }
+    insertBefore(child) { env.siblings.push(child); child.parentNode = this; return child; }
     addEventListener(name, handler) { (this.listeners[name] ??= []).push(handler); }
     emit(name) { for (const handler of this.listeners[name] ?? []) handler(); }
     pause() { this.paused = true; }
     load() {}
     play() {
       // Como los navegadores: sin interacción se bloquea el sonido, no la reproducción silenciada.
+      // Un Chromium antiguo (legacy) no devuelve promesa: el bloqueo solo se nota porque no arranca.
       this.plays = (this.plays ?? 0) + 1;
-      if (env.blocked && !this.muted) return Promise.reject(new Error("NotAllowed"));
-      this.paused = false;
-      return Promise.resolve();
+      const allowed = !env.blocked || this.muted;
+      if (allowed) this.paused = false;
+      if (env.legacy) return undefined;
+      return allowed ? Promise.resolve() : Promise.reject(new Error("NotAllowed"));
+    }
+  }
+  class FakeXHR {
+    open(method, url) { this.url = url; }
+    setRequestHeader() {}
+    send(body) {
+      queueMicrotask(() => {
+        this.readyState = 4;
+        if (env.offline) {
+          this.status = 0;
+          this.onreadystatechange();
+          this.onerror();
+          return;
+        }
+        if (this.url.includes("/complete/")) env.completions.push(JSON.parse(body).event_id);
+        this.status = 200;
+        this.responseText = JSON.stringify(this.url.includes("/complete/") ? {accepted: true} : env.state);
+        this.onreadystatechange();
+      });
     }
   }
   const elements = Object.fromEntries(["stage", "connection"].map(name => [name, new Element(name)]));
+  elements.stage.parentNode = new Element("body");
   const context = vm.createContext({
     document: {
       body: {dataset: {channel: "figuras"}},
       querySelector: selector => elements[selector.slice(1)],
       createElement: tag => new Element(tag),
     },
-    console: {error() {}, warn() {}}, AbortSignal,
+    console: {error() {}, warn() {}}, XMLHttpRequest: FakeXHR,
     setTimeout: (fn, ms) => { const id = ++timerId; env.timers.set(id, {fn, ms}); return id; },
     clearTimeout: id => env.timers.delete(id),
-    fetch: async (url, options) => {
-      if (env.offline) throw new Error("Offline");
-      if (url.includes("/complete/")) {
-        env.completions.push(JSON.parse(options.body).event_id);
-        return {ok: true, json: async () => ({accepted: true})};
-      }
-      return {ok: true, json: async () => structuredClone(env.state)};
-    },
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../web/player.js"), "utf8"), context);
-  env.poll = () => vm.runInContext("poll()", context);
+  env.poll = async () => { vm.runInContext("poll()", context); await flush(); };
+  env.timer = ms => [...env.timers.values()].find(timer => timer.ms === ms);
   env.elements = elements;
   env.video = () => elements.stage.children[0];
   return env;
@@ -158,11 +178,52 @@ test("un vídeo en pausa se reanuda solo, salvo si ya terminó", async () => {
   assert.equal(video.plays, 2);
 });
 
+test("en un Chromium antiguo, sin promesa en play(), acaba reproduciendo sin sonido", async () => {
+  const env = harness(snapshot({content: {...base, muted: false}})); await flush();
+  Object.assign(env, {legacy: true, blocked: true});
+  const video = env.video();
+  video.emit("loadedmetadata"); await flush();
+  assert.equal(video.paused, true);
+  video.readyState = 4;
+  for (let check = 0; check < 3; check += 1) await env.poll();
+  assert.equal(video.muted, true);
+  assert.equal(video.paused, false);
+});
+
 test("el tiempo de protección devuelve la base sin respuesta del servidor", async () => {
   const env = harness(snapshot({revision: 1, mode: "event", event_id: "stalled", remaining_ms: 1000})); await flush();
   env.offline = true;
-  [...env.timers.values()].find(timer => timer.ms === 1000).fn(); await flush();
+  env.timer(1000).fn(); await flush();
   assert.equal(env.video().loop, true);
+});
+
+test("un vídeo de acción que no arranca en 12 s vuelve a la base", async () => {
+  const env = harness(snapshot({revision: 1, mode: "event", event_id: "mudo"})); await flush();
+  env.timer(12000).fn(); await flush();
+  assert.equal(env.video().loop, true);
+  assert.deepEqual(env.completions, ["mudo"]);
+  const playing = harness(snapshot({revision: 1, mode: "event", event_id: "sigue"})); await flush();
+  playing.video().emit("playing");
+  playing.timer(12000).fn(); await flush();
+  assert.equal(playing.video().loop, false);
+});
+
+test("si la base no carga, se vuelve a pedir a los 15 s", async () => {
+  const env = harness(snapshot()); await flush();
+  env.video().emit("error");
+  assert.equal(env.elements.stage.children[0].tag, "section");
+  env.timer(15000).fn();
+  await env.poll();
+  assert.equal(env.video().src, "/media/base.mp4");
+});
+
+test("si el reproductor ignora loop, la base vuelve a empezar", async () => {
+  const env = harness(snapshot()); await flush();
+  const video = env.video();
+  video.currentTime = 30;
+  video.emit("ended");
+  assert.equal(video.currentTime, 0);
+  assert.equal(video.paused, false);
 });
 
 test("superpone los indicadores NFC solo si la pantalla lo tiene configurado", async () => {
@@ -178,6 +239,15 @@ test("superpone los indicadores NFC solo si la pantalla lo tiene configurado", a
   assert.equal(frame.removed, true);
   const plain = harness(snapshot()); await flush();
   assert.deepEqual(plain.siblings, []);
+});
+
+test("player.js y overlay.js siguen en ES5 para el Chromium antiguo del reproductor", () => {
+  const modern = [/=>/, /`/, /\?\./, /\?\?/, /\b(const|let|class|async|await)\s/, /\.\.\.[\w$[{(]/,
+    /\b(fetch|AbortSignal|replaceChildren|queueMicrotask|structuredClone)\s*[.(]/, /\.(append|prepend|after|before|replaceWith)\(/];
+  for (const file of ["player.js", "overlay.js"]) {
+    const source = fs.readFileSync(path.join(__dirname, "../web", file), "utf8");
+    for (const pattern of modern) assert.doesNotMatch(source, pattern, `${file} usa ${pattern}`);
+  }
 });
 
 test("un reinicio del servidor actualiza la pantalla aunque coincida la revisión", async () => {

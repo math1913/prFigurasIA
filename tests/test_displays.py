@@ -297,6 +297,13 @@ def test_overlay_page_logos_and_presence(settings):
         assert present.pop("Prince") and not any(present.values())
 
 
+def test_screen_pages_log_the_player_browser(settings, caplog):
+    agent = "Mozilla/5.0 (Linux; Android 7.1.2) Chrome/52.0.2743.98"
+    with TestClient(create_app(settings=settings, demo=True)) as client, caplog.at_level("INFO"):
+        client.get("/nfc", headers={"User-Agent": agent})
+    assert f"Pantalla nfc abierta desde testclient · {agent}" in caplog.text
+
+
 def test_overlay_only_on_configured_channels(settings):
     state = DisplayState(settings)
     assert state.snapshot("nfc")["overlay"] and not state.snapshot("figuras")["overlay"]

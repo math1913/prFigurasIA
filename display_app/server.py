@@ -5,7 +5,7 @@ from pathlib import Path
 import threading
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -67,17 +67,23 @@ def create_app(config_path: Path | None = None, demo=False, settings=None):
     def index():
         return FileResponse(ROOT / "web" / "index.html")
 
+    def screen(name, request):
+        # Identifica al reproductor que abre la pantalla: su versión de Chromium explica los fallos de compatibilidad.
+        log.info("Pantalla %s abierta desde %s · %s", name, request.client.host if request.client else "?",
+                 request.headers.get("user-agent", "sin User-Agent"))
+        return FileResponse(ROOT / "web" / f"{name}.html")
+
     @app.get("/figuras", include_in_schema=False)
-    def figures_page():
-        return FileResponse(ROOT / "web" / "figuras.html")
+    def figures_page(request: Request):
+        return screen("figuras", request)
 
     @app.get("/nfc", include_in_schema=False)
-    def nfc_page():
-        return FileResponse(ROOT / "web" / "nfc.html")
+    def nfc_page(request: Request):
+        return screen("nfc", request)
 
     @app.get("/overlay", include_in_schema=False)
-    def overlay_page():
-        return FileResponse(ROOT / "web" / "overlay.html")
+    def overlay_page(request: Request):
+        return screen("overlay", request)
 
     @app.get("/api/state/{channel}")
     def get_state(channel: ChannelName, response: Response):

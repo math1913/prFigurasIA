@@ -1,48 +1,85 @@
+/*
+ * Reproductor de las pantallas /figuras y /nfc, en modo kiosco.
+ *
+ * Escrito en ES5 y sin APIs recientes (fetch, AbortSignal, replaceChildren,
+ * promesas obligatorias...), como los contenidos de cartelería de controlStore:
+ * el reproductor de Admira corre en Android con un Chromium antiguo, y una sola
+ * sintaxis que no entienda impide que el script arranque y deja la pantalla en negro.
+ */
 "use strict";
 
-const channel = document.body.dataset.channel;
-const stage = document.querySelector("#stage");
-const connection = document.querySelector("#connection");
-let token = null;
-let latest = null;
-let expiryTimer = null;
-let pendingCompletion = null;
-let finishedEvent = null;
-let activeVideo = null;
-let renderVersion = 0;
-let overlay = null;
+var channel = document.body.dataset.channel;
+var stage = document.querySelector("#stage");
+var connection = document.querySelector("#connection");
+var token = null;
+var latest = null;
+var expiryTimer = null;
+var pendingCompletion = null;
+var finishedEvent = null;
+var activeVideo = null;
+var renderVersion = 0;
+var overlay = null;
 
-async function request(path, options = {}) {
-  const response = await fetch(path, {cache: "no-store", signal: AbortSignal.timeout(2000), ...options});
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+// done(error, datos). XMLHttpRequest en lugar de fetch, que los reproductores antiguos no tienen.
+function request(method, path, body, done) {
+  var xhr = new XMLHttpRequest();
+  var settled = false;
+  function settle(error, data) {
+    if (settled) return;
+    settled = true;
+    done(error, data);
+  }
+  xhr.open(method, path, true);
+  xhr.timeout = 2000;
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) return;
+    if (xhr.status < 200 || xhr.status >= 300) {
+      settle(new Error("HTTP " + xhr.status));
+      return;
+    }
+    var data;
+    try {
+      data = JSON.parse(xhr.responseText);
+    } catch (error) {
+      settle(error);
+      return;
+    }
+    settle(null, data);
+  };
+  xhr.onerror = xhr.ontimeout = function () { settle(new Error("Sin conexión")); };
+  if (body) xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.send(body ? JSON.stringify(body) : null);
+}
+
+function element(tag, className, text) {
+  var node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) node.textContent = text;
+  return node;
 }
 
 function placeholder(content, isEvent) {
-  const section = document.createElement("section");
-  section.className = `placeholder ${isEvent ? "is-event" : ""}`;
-  const brand = document.createElement("div");
-  brand.className = "brand";
-  brand.textContent = "BIGBANG";
-  const eyebrow = document.createElement("p");
-  eyebrow.className = "eyebrow";
-  eyebrow.textContent = channel === "figuras" ? "El universo de las figuras" : "Objetos que cuentan historias";
-  const title = document.createElement("h1");
-  title.textContent = content.title;
-  const description = document.createElement("p");
-  description.className = "invitation";
-  description.textContent = isEvent ? "Descubre su historia" : channel === "figuras"
+  var section = element("section", isEvent ? "placeholder is-event" : "placeholder");
+  var orbit = element("div", "orbit");
+  orbit.setAttribute("aria-hidden", "true");
+  var description = isEvent ? "Descubre su historia" : channel === "figuras"
     ? "Muestra una figura o escanea su código y descubre su historia."
     : "Levanta un objeto de su base y descubre su historia.";
-  const orbit = document.createElement("div");
-  orbit.className = "orbit";
-  orbit.setAttribute("aria-hidden", "true");
-  section.append(brand, orbit, eyebrow, title, description);
+  section.appendChild(element("div", "brand", "BIGBANG"));
+  section.appendChild(orbit);
+  section.appendChild(element("p", "eyebrow", channel === "figuras" ? "El universo de las figuras" : "Objetos que cuentan historias"));
+  section.appendChild(element("h1", "", content.title));
+  section.appendChild(element("p", "invitation", description));
   return section;
 }
 
-function render(content, state, fallback = null) {
-  const version = ++renderVersion;
+function show(node) {
+  while (stage.firstChild) stage.removeChild(stage.firstChild);
+  stage.appendChild(node);
+}
+
+function render(content, state, fallback) {
+  var version = ++renderVersion;
   if (activeVideo) {
     activeVideo.pause();
     activeVideo.removeAttribute("src");
@@ -50,30 +87,46 @@ function render(content, state, fallback = null) {
     activeVideo = null;
   }
   if (!content.src) {
-    stage.replaceChildren(placeholder(content, state.mode === "event"));
+    show(placeholder(content, state.mode === "event"));
     return;
   }
-  const video = document.createElement("video");
+  var video = document.createElement("video");
   activeVideo = video;
   video.src = content.src;
   video.muted = content.muted;
   video.loop = state.mode === "base";
-  video.playsInline = true;
   video.preload = "auto";
+  video.setAttribute("playsinline", "");
   video.setAttribute("aria-label", content.title);
-  video.addEventListener("ended", () => {
-    if (version === renderVersion && state.mode === "event") finish(state.event_id);
+  video.addEventListener("playing", function () {
+    video.started = true;
+    video.pausedChecks = 0;
   });
-  video.addEventListener("error", () => {
+  video.addEventListener("ended", function () {
+    if (version !== renderVersion) return;
+    if (state.mode === "event") {
+      finish(state.event_id);
+    } else {
+      // Por si el reproductor ignora el atributo loop.
+      video.currentTime = 0;
+      start(video);
+    }
+  });
+  video.addEventListener("error", function () {
     if (version !== renderVersion) return;
     console.error("No se puede reproducir", content.src);
-    if (state.mode === "event") finish(state.event_id);
-    else if (fallback?.src && fallback.src !== content.src) render(fallback, state);
-    else render({...content, src: null}, state);
+    if (state.mode === "event") {
+      finish(state.event_id);
+    } else if (fallback && fallback.src && fallback.src !== content.src) {
+      render(fallback, state);
+    } else {
+      render({title: content.title, src: null}, state);
+      retryLater();
+    }
   });
-  video.addEventListener("loadedmetadata", () => {
+  video.addEventListener("loadedmetadata", function () {
     if (version !== renderVersion) return;
-    if (state.mode === "event" && Number.isFinite(video.duration)) {
+    if (state.mode === "event" && isFinite(video.duration)) {
       if (state.elapsed_seconds >= video.duration) {
         finish(state.event_id);
         return;
@@ -82,27 +135,66 @@ function render(content, state, fallback = null) {
     }
     start(video);
   });
-  stage.replaceChildren(video);
+  if (state.mode === "event") {
+    // Un vídeo que no arranca ni da error no puede dejar la pantalla en negro hasta max_event_seconds.
+    setTimeout(function () {
+      if (version === renderVersion && !video.started) finish(state.event_id);
+    }, 12000);
+  }
+  show(video);
 }
 
-// Modo kiosco, sin botones: si el navegador bloquea el sonido, se reproduce sin sonido.
+// Si la base no se pudo leer (red cortada, servidor reiniciándose), se vuelve a pedir.
+function retryLater() {
+  var version = renderVersion;
+  setTimeout(function () {
+    if (version === renderVersion) token = null;
+  }, 15000);
+}
+
+// Modo kiosco, sin botones. Los Chromium antiguos no devuelven promesa desde play().
 function start(video) {
-  video.play().catch(() => {
-    if (video !== activeVideo || video.muted) return;
-    console.warn("El navegador bloquea el sonido; se reproduce sin sonido", video.src);
-    video.muted = true;
-    start(video);
-  });
+  var started;
+  try {
+    started = video.play();
+  } catch (error) {
+    mute(video);
+    return;
+  }
+  if (started && typeof started.then === "function") {
+    started.then(null, function () { mute(video); });
+  }
 }
 
-async function sendCompletion() {
-  if (!pendingCompletion) return;
-  const id = pendingCompletion;
-  await request(`/api/complete/${channel}`, {
-    method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({event_id: id}),
+// Si el navegador bloquea el sonido, se reproduce sin sonido.
+function mute(video) {
+  if (video !== activeVideo || video.muted) return;
+  console.warn("El navegador bloquea el sonido; se reproduce sin sonido", video.src);
+  video.muted = true;
+  start(video);
+}
+
+// Nada debe quedarse en pausa (p. ej., tras un cambio de salida de audio): se reanuda.
+function keepPlaying() {
+  var video = activeVideo;
+  if (!video || !video.paused || video.ended || !(video.readyState >= 2)) return;
+  // Sin promesa, el sonido bloqueado solo se nota porque el vídeo no arranca.
+  video.pausedChecks = (video.pausedChecks || 0) + 1;
+  if (video.pausedChecks > 2 && !video.muted) mute(video);
+  else start(video);
+}
+
+// done(error)
+function sendCompletion(done) {
+  if (!pendingCompletion) {
+    done(null);
+    return;
+  }
+  var id = pendingCompletion;
+  request("POST", "/api/complete/" + channel, {event_id: id}, function (error) {
+    if (!error && pendingCompletion === id) pendingCompletion = null;
+    done(error);
   });
-  if (pendingCompletion === id) pendingCompletion = null;
 }
 
 function finish(id) {
@@ -112,14 +204,16 @@ function finish(id) {
   pendingCompletion = id;
   // Vuelve a la base incluso si se pierde la conexión al finalizar el vídeo.
   render(latest.base, {mode: "base"}, latest.fallback_base);
-  sendCompletion().catch(() => { connection.hidden = false; });
+  sendCompletion(function (error) {
+    if (error) connection.hidden = false;
+  });
 }
 
 // Indicadores NFC de /overlay sobre el vídeo, según nfc.overlay_channels.
 function syncOverlay(enabled) {
   if (Boolean(enabled) === Boolean(overlay)) return;
   if (overlay) {
-    overlay.remove();
+    overlay.parentNode.removeChild(overlay);
     overlay = null;
     return;
   }
@@ -128,36 +222,46 @@ function syncOverlay(enabled) {
   overlay.src = "/overlay";
   overlay.title = "Indicadores NFC";
   overlay.tabIndex = -1;
-  stage.after(overlay);
+  stage.parentNode.insertBefore(overlay, stage.nextSibling);
 }
 
 function applySnapshot(state) {
   latest = state;
   syncOverlay(state.overlay);
-  const nextToken = `${state.session}:${state.revision}`;
+  var nextToken = state.session + ":" + state.revision;
   if (nextToken === token) return;
   token = nextToken;
   clearTimeout(expiryTimer);
   if (state.event_id && state.event_id === finishedEvent) return;
   render(state.content, state, state.fallback_base);
   if (state.mode === "event") {
-    expiryTimer = setTimeout(() => finish(state.event_id), state.remaining_ms);
+    expiryTimer = setTimeout(function () { finish(state.event_id); }, state.remaining_ms);
   }
 }
 
-async function poll() {
-  try {
-    await sendCompletion();
-    applySnapshot(await request(`/api/state/${channel}`));
-    connection.hidden = true;
-  } catch (error) {
-    connection.hidden = false;
-  } finally {
-    // Nada debe quedarse en pausa (p. ej., tras un cambio de salida de audio): se reanuda.
-    if (activeVideo?.paused && !activeVideo.ended && activeVideo.readyState >= 2) start(activeVideo);
+function poll() {
+  function done(error) {
     setTimeout(poll, 250);
+    connection.hidden = !error;
+    keepPlaying();
   }
+  sendCompletion(function (error) {
+    if (error) {
+      done(error);
+      return;
+    }
+    request("GET", "/api/state/" + channel + "?t=" + new Date().getTime(), null, function (error, state) {
+      if (!error) {
+        try {
+          applySnapshot(state);
+        } catch (problem) {
+          error = problem;
+        }
+      }
+      done(error);
+    });
+  });
 }
 
-stage.replaceChildren(placeholder({title: "Todo empieza con una historia"}, false));
+show(placeholder({title: "Todo empieza con una historia"}, false));
 poll();
