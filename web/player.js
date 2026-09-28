@@ -26,8 +26,6 @@ var finishedEvent = null;
 var activeVideo = null;
 var renderVersion = 0;
 var overlay = null;
-var stageHeight = "";
-var reportedSize = null;
 
 function now() {
   return typeof performance !== "undefined" && performance.now ? performance.now() : new Date().getTime();
@@ -294,33 +292,6 @@ function syncOverlay(enabled) {
   stage.parentNode.insertBefore(overlay, stage.nextSibling);
 }
 
-// El vídeo llega hasta abajo aunque el visor calcule la página algo más baja que la pantalla, como
-// hace el WebView de Android si oculta la barra de navegación después de cargarla. A pantalla
-// completa no cambia nada: solo se alarga si la página ocupa todo el ancho y le falta menos de un 10 %.
-function fitStage() {
-  var display = window.screen || {};
-  var missing = display.height - window.innerHeight;
-  var shorter = Math.abs(display.width - window.innerWidth) <= 2 && missing > 0 && missing <= display.height * 0.1;
-  var height = shorter ? display.height + "px" : "";
-  if (height === stageHeight) return;
-  stageHeight = height;
-  stage.style.height = height;
-}
-
-// Anota en la consola del servidor el tamaño de la página y de la pantalla. Si la franja sigue
-// ahí y la página ya mide lo mismo que la pantalla, esa franja la pone el reproductor o la tele.
-function reportSize() {
-  var display = window.screen || {};
-  var size = {width: window.innerWidth, height: window.innerHeight, screen_width: display.width,
-              screen_height: display.height, ratio: window.devicePixelRatio || 1};
-  var key = [size.width, size.height, size.screen_width, size.screen_height, size.ratio].join("x");
-  if (key === reportedSize) return;
-  reportedSize = key;
-  request("POST", "/api/screen/" + channel, size, function (error) {
-    if (error) reportedSize = null;
-  });
-}
-
 function applySnapshot(state) {
   latest = state;
   clock = {elapsed: state.elapsed_seconds || 0, at: now(), mode: state.mode,
@@ -346,10 +317,6 @@ function poll() {
     connection.hidden = !error;
     keepPlaying();
     sync();
-    if (role === "screen") {
-      fitStage();
-      reportSize();
-    }
   }
   sendCompletion(function (error) {
     if (error) {

@@ -97,12 +97,19 @@ class Audio(SettingsModel):
     browser: str | None = None  # Ruta de Chrome o Edge; sin valor se busca sola.
 
 
+class Admira(SettingsModel):
+    # Reiniciar Admira cuando el servidor ya contesta, si acaba de arrancar con el PC.
+    enabled: bool = True
+    launcher: str | None = None  # Acceso directo o ejecutable de Admira; sin valor se busca solo.
+
+
 class Settings(SettingsModel):
     figures: Figures
     nfc: NFC = Field(default_factory=NFC)
     barcode: Barcode = Field(default_factory=Barcode)
     weather: Weather
     audio: Audio = Field(default_factory=Audio)
+    admira: Admira = Field(default_factory=Admira)
     channels: dict[str, Channel]
 
     @model_validator(mode="after")

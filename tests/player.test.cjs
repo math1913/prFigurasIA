@@ -13,14 +13,14 @@ const snapshot = (overrides = {}) => ({
   ...overrides,
 });
 
-function harness(initial, {role, channel = "figuras", pathname, page = [1920, 1080], screen = [1920, 1080]} = {}) {
+function harness(initial, {role, channel = "figuras", pathname} = {}) {
   const env = {state: initial, offline: false, blocked: false, legacy: false, completions: [], timers: new Map(),
-               siblings: [], urls: [], posts: [], now: 0};
+               siblings: [], urls: [], now: 0};
   let timerId = 0;
   class Element {
     constructor(tag) {
       this.tag = tag; this.children = []; this.listeners = {}; this.hidden = true; this.paused = true;
-      this.duration = 12; this.currentTime = 0; this.playbackRate = 1; this.dataset = {}; this.attributes = {}; this.style = {};
+      this.duration = 12; this.currentTime = 0; this.playbackRate = 1; this.dataset = {}; this.attributes = {};
     }
     get firstChild() { return this.children[0] ?? null; }
     setAttribute(key, value) { this.attributes[key] = value; }
@@ -48,7 +48,7 @@ function harness(initial, {role, channel = "figuras", pathname, page = [1920, 10
     }
   }
   class FakeXHR {
-    open(method, url) { this.method = method; this.url = url; env.urls.push(url); }
+    open(method, url) { this.url = url; env.urls.push(url); }
     setRequestHeader() {}
     send(body) {
       queueMicrotask(() => {
@@ -60,7 +60,6 @@ function harness(initial, {role, channel = "figuras", pathname, page = [1920, 10
           return;
         }
         if (this.url.includes("/complete/")) env.completions.push(JSON.parse(body).event_id);
-        else if (this.method === "POST") env.posts.push({url: this.url, body: JSON.parse(body)});
         this.status = 200;
         this.responseText = JSON.stringify(this.url.includes("/complete/") ? {accepted: true} : env.state);
         this.onreadystatechange();
@@ -77,7 +76,6 @@ function harness(initial, {role, channel = "figuras", pathname, page = [1920, 10
     },
     location: {pathname: pathname ?? "/" + channel},
     performance: {now: () => env.now},
-    window: {innerWidth: page[0], innerHeight: page[1], devicePixelRatio: 1, screen: {width: screen[0], height: screen[1]}},
     console: {error() {}, warn() {}}, XMLHttpRequest: FakeXHR,
     setTimeout: (fn, ms) => { const id = ++timerId; env.timers.set(id, {fn, ms}); return id; },
     clearTimeout: id => env.timers.delete(id),
@@ -262,12 +260,11 @@ test("con audio_on_pc la pantalla va en silencio y la página de audio pone el s
   const screen = harness(snapshot({audio_on_pc: true, content: song, base: song}), {channel: "nfc"}); await flush();
   assert.equal(screen.video().tag, "video");
   assert.equal(screen.video().muted, true);
-  assert.ok(screen.urls.some(url => /^\/api\/state\/nfc\?t=\d+$/.test(url)));
+  assert.match(screen.urls.at(-1), /^\/api\/state\/nfc\?t=\d+$/);
   const audio = harness(snapshot({audio_on_pc: true, content: song, base: song}), {role: "audio", pathname: "/audio/nfc"}); await flush();
   assert.equal(audio.video().tag, "audio");
   assert.equal(audio.video().muted, false);
-  assert.ok(audio.urls.some(url => /^\/api\/state\/nfc\?t=\d+&audio=1$/.test(url)));
-  assert.deepEqual(audio.posts, []);
+  assert.match(audio.urls.at(-1), /^\/api\/state\/nfc\?t=\d+&audio=1$/);
   assert.deepEqual(audio.siblings, []);
   const alone = harness(snapshot({content: song, base: song}), {role: "audio", pathname: "/audio/nfc"}); await flush();
   assert.equal(alone.video().muted, true);
@@ -319,21 +316,6 @@ test("al terminar un vídeo, la base no vuelve a empezar cuando el servidor lo c
   env.state = snapshot({revision: 2});
   await env.poll();
   assert.equal(env.video(), playing);
-});
-
-test("si el visor deja la página algo más baja que la pantalla, el vídeo llega hasta abajo", async () => {
-  const tv = harness(snapshot(), {page: [1920, 1036]}); await flush();
-  assert.equal(tv.elements.stage.style.height, "1080px");
-  assert.deepEqual(tv.posts.map(post => post.body),
-    [{width: 1920, height: 1036, screen_width: 1920, screen_height: 1080, ratio: 1}]);
-  await tv.poll();
-  assert.equal(tv.posts.length, 1);  // Solo se anota cuando cambia.
-  const full = harness(snapshot()); await flush();
-  assert.equal(full.elements.stage.style.height, undefined);
-  const window = harness(snapshot(), {page: [1920, 900]}); await flush();
-  assert.equal(window.elements.stage.style.height, undefined);  // Una ventana normal no se toca.
-  const narrow = harness(snapshot(), {page: [1600, 1040]}); await flush();
-  assert.equal(narrow.elements.stage.style.height, undefined);
 });
 
 test("player.js y overlay.js siguen en ES5 para el Chromium antiguo del reproductor", () => {

@@ -6,4 +6,4 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 /* Oculto por defecto; overlay.js añade present mientras el lector lo detecta. Sin animación. */
 .indicator { display: none; }
 .indicator.present { display: block; margin-bottom: 10px; }
-.indicator img { display: block; min-width: 50px; width: 3vw; }
+.indicator img { display: block; min-width: 36px; width: 2vw; }

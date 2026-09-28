@@ -68,14 +68,13 @@ New-NetFirewallRule -DisplayName "BigBang 8002" -Direction Inbound -Protocol TCP
 
 La regla solo se aplica si Windows considera la red privada. Si aparece como pública, cámbiala en Configuración > Red e Internet > Ethernet > Tipo de perfil de red. Si al arrancar Windows pregunta por Python, pulsa «Permitir acceso». Si alguien canceló ese aviso, Windows habrá creado reglas que bloquean `python.exe`; esas reglas tienen prioridad, así que bórralas en «Firewall de Windows Defender con seguridad avanzada» > «Reglas de entrada».
 
-Para que arranque al encender el PC, crea una tarea en el Programador de tareas:
+Para que arranque solo al encender el PC, ejecuta una vez `instalar_inicio.bat`. Crea un acceso directo a `iniciar_bigbang.bat` en la carpeta Inicio de tu usuario, con la ventana minimizada, y no necesita permisos de administrador. `instalar_inicio.bat --quitar` lo borra. Con el inicio de sesión automático de Windows activado, todo arranca al encender. Hace falta la sesión del usuario: fuera de ella no hay altavoces para el sonido del PC.
 
-1. **Desencadenador:** «Al iniciar la sesión» del usuario del montaje, con el inicio de sesión automático de Windows activado. En la sesión del usuario, la cámara y los lectores funcionan con menos problemas que con «Al iniciar el sistema».
-2. **Acción:** «Iniciar un programa», con la ruta completa de `iniciar_bigbang.bat`.
-3. **General:** «Ejecutar solo cuando el usuario haya iniciado sesión». El sonido del PC también lo necesita: fuera de la sesión no hay altavoces.
-4. **Configuración:** desmarca «Detener la tarea si se ejecuta durante más de 3 días», que viene marcada y la cerraría a los tres días. Mantén «No iniciar una instancia nueva».
+Admira arranca a la vez desde la carpeta Inicio común y abre las pantallas antes de que el servidor conteste, así que se quedarían en negro. Por eso, cuando la web ya responde (menos de un segundo después de arrancar Python), la aplicación reinicia Admira una vez para que cargue las pantallas con el servidor en marcha. Solo lo hace si Admira lleva menos de 10 minutos abierto; si la aplicación se reinicia a media jornada, Admira no se toca y sus pantallas se reconectan solas. El panel lo muestra en «Admira · arranque». `admira.enabled: false` lo desactiva y `admira.launcher` indica su acceso directo si no está en `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\ADmira.lnk` ni en `C:\admira\admira.exe`.
 
-El software de pantallas necesita que el servidor ya responda al abrir las URL. Si arranca antes que la tarea, añade unos segundos de retraso o activa su recarga automática.
+Esto vale para el Admira del PC. Una tele que se encienda antes que el PC y abra la URL sin servidor necesita recargar su contenido desde Admira.
+
+Si tienes permisos de administrador, también sirve una tarea del Programador de tareas «Al iniciar la sesión» que ejecute `iniciar_bigbang.bat`. En ese caso desmarca «Detener la tarea si se ejecuta durante más de 3 días», que la cerraría a los tres días.
 
 ## Demostración sin dispositivos
 
@@ -108,7 +107,7 @@ Por ejemplo, este objeto configura el contenido de `channels.nfc.events.Prince`:
 
 `media/nfc/prince.mp4` debe existir. Usa vídeos que tu navegador pueda reproducir; MP4 con H.264 es una opción habitual.
 
-Los vídeos llenan la pantalla aunque su formato no coincida con ella: `fit` es `cover` por defecto y recorta lo que sobra, sin deformar. Se configura por pantalla, en `channels.figuras.fit` y `channels.nfc.fit`, y un vídeo concreto puede llevar el suyo con `"fit"`. `contain` muestra el vídeo entero con bandas negras y `fill` lo estira hasta llenar la pantalla. Si con `cover` queda una franja negra, está fuera de la página: es el margen que deja el propio reproductor o la tele.
+Los vídeos llenan la pantalla aunque su formato no coincida con ella: `fit` es `cover` por defecto y recorta lo que sobra, sin deformar. Se configura por pantalla, en `channels.figuras.fit` y `channels.nfc.fit`, y un vídeo concreto puede llevar el suyo con `"fit"`. `contain` muestra el vídeo entero con bandas negras y `fill` lo estira hasta llenar la pantalla. Si con `cover` queda una franja negra, está fuera de la página: el reproductor no ocupa toda la pantalla. En el PC del montaje era la barra de tareas de Windows; se resolvió haciéndola más pequeña.
 
 `muted` es `true` por defecto para permitir reproducción automática. Con `false`, muchos navegadores solo reproducen con sonido tras una interacción del usuario. Como las pantallas no tienen botones, en ese caso el vídeo se reproduce igualmente, sin sonido, y la consola del navegador lo avisa. Para que suene, permite la reproducción automática con sonido en el software de pantallas; en Chrome o Edge, con el argumento `--autoplay-policy=no-user-gesture-required`.
 
@@ -286,7 +285,8 @@ La organización principal es:
 
 ```text
 main.py                 Arranque único
-iniciar_bigbang.bat     Arranque automático con reinicio (tarea programada)
+iniciar_bigbang.bat     Arranque con reinicio si se cierra
+instalar_inicio.bat     Acceso directo en la carpeta Inicio (arranque al encender)
 config.json             Dispositivos, clima y vídeos
 aliases.json            UID NFC → nombre
 barcode_id.json         Código de barras → contenido de figuras

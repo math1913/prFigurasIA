@@ -17,7 +17,7 @@ class DisplayState:
         self.active = {name: None for name in settings.channels}
         self.revisions = {name: 0 for name in settings.channels}
         self.hardware = {name: {"status": "starting", "detail": "Iniciando"}
-                         for name in ["figuras", "barcode", "nfc", "weather", "audio"]}
+                         for name in ["figuras", "barcode", "nfc", "weather", "audio", "admira"]}
         self.present = {}
         self.weather_code = None
         # Desde cuándo suena la base: pantalla y audio del PC la siguen desde el mismo punto.

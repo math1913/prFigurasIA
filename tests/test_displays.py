@@ -324,6 +324,35 @@ def test_audio_browser_reopens_a_page_that_stops_polling(settings, monkeypatch, 
     assert state.health()["hardware"]["audio"]["status"] == "ready"
 
 
+@pytest.mark.parametrize("minutes,launcher,restarted,status", [
+    (1.5, True, True, "ready"),      # Acaba de arrancar con el PC: se reinicia con la web ya lista.
+    (45, True, False, "ready"),      # Lleva rato abierto: sus pantallas se reconectan solas.
+    (None, True, False, "ready"),    # Aún no estaba abierto: cargará la web ya en marcha.
+    (1.5, False, False, "error"),    # Sin forma de volver a abrirlo, no se cierra.
+])
+def test_admira_restarts_only_right_after_boot(settings, monkeypatch, tmp_path, minutes, launcher, restarted, status):
+    from display_app import admira
+    closed, opened = [], []
+    shortcut = tmp_path / "ADmira.lnk"
+    monkeypatch.setattr(admira, "reachable", lambda url: True)
+    monkeypatch.setattr(admira, "started_minutes_ago", lambda: minutes)
+    monkeypatch.setattr(admira, "find_launcher", lambda configured: shortcut if launcher else None)
+    monkeypatch.setattr(admira, "close", lambda stop: closed.append(True) or True)
+    monkeypatch.setattr(admira.os, "startfile", opened.append, raising=False)
+    state = DisplayState(settings)
+    admira.run_admira(state, threading.Event(), port=8123)
+    assert bool(closed) == restarted and opened == ([shortcut] if restarted else [])
+    assert state.health()["hardware"]["admira"]["status"] == status
+
+
+def test_find_admira_launcher(tmp_path):
+    from display_app.admira import find_launcher
+    shortcut = tmp_path / "ADmira.lnk"
+    shortcut.write_bytes(b"")
+    assert find_launcher(str(shortcut)) == shortcut
+    assert find_launcher(str(tmp_path / "otro.lnk")) is None
+
+
 def test_find_browser(tmp_path):
     from display_app.audio import find_browser
     browser = tmp_path / "chrome.exe"
@@ -403,16 +432,6 @@ def test_screen_pages_log_the_player_browser(settings, caplog):
     assert f"Pantalla nfc abierta desde testclient · {agent}" in caplog.text
 
 
-def test_screen_size_is_logged_with_the_missing_band(settings, caplog):
-    with TestClient(create_app(settings=settings, demo=True)) as client, caplog.at_level("INFO"):
-        size = {"width": 1920, "height": 1036, "screen_width": 1920, "screen_height": 1080, "ratio": 1}
-        assert client.post("/api/screen/nfc", json=size).json() == {"accepted": True}
-        client.post("/api/screen/figuras", json={**size, "height": 1080})
-    assert ("Pantalla nfc en testclient: página 1920×1036, pantalla 1920×1080, escala 1"
-            " · a la página le faltan 44 px de alto") in caplog.text
-    assert "Pantalla figuras en testclient: página 1920×1080, pantalla 1920×1080, escala 1\n" in caplog.text
-
-
 def test_overlay_only_on_configured_channels(settings):
     state = DisplayState(settings)
     assert state.snapshot("nfc")["overlay"] and not state.snapshot("figuras")["overlay"]
@@ -423,7 +442,7 @@ def test_overlay_only_on_configured_channels(settings):
 
 
 def test_simulation_disabled_in_real_mode(settings):
-    settings.barcode.enabled = settings.audio.enabled = False
+    settings.barcode.enabled = settings.audio.enabled = settings.admira.enabled = False
     settings.figures.enabled = settings.nfc.enabled = settings.weather.enabled = False
     with TestClient(create_app(settings=settings)) as client:
         assert client.post("/api/demo/nfc", json={"key": "Prince"}).status_code == 403

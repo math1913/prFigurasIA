@@ -241,5 +241,9 @@
   "audio": {
     "enabled": true,
     "browser": null
+  },
+  "admira": {
+    "enabled": true,
+    "launcher": null
   }
 }

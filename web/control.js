@@ -1,6 +1,6 @@
 "use strict";
 
-const names = {figuras: "Pantalla · Figuras", barcode: "Lector · Códigos de barras", nfc: "Lector · NFC", weather: "Clima", audio: "Sonido · PC"};
+const names = {figuras: "Pantalla · Figuras", barcode: "Lector · Códigos de barras", nfc: "Lector · NFC", weather: "Clima", audio: "Sonido · PC", admira: "Admira · arranque"};
 let built = false;
 
 function buildButtons(groups) {
