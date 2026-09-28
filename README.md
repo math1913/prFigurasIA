@@ -72,7 +72,7 @@ Para que arranque solo al encender el PC, ejecuta una vez `instalar_inicio.bat`.
 
 Admira arranca a la vez desde la carpeta Inicio común y abre las pantallas antes de que el servidor conteste, así que se quedarían en negro. Por eso, cuando la web ya responde (menos de un segundo después de arrancar Python), la aplicación reinicia Admira una vez para que cargue las pantallas con el servidor en marcha. Solo lo hace si Admira lleva menos de 10 minutos abierto; si la aplicación se reinicia a media jornada, Admira no se toca y sus pantallas se reconectan solas. El panel lo muestra en «Admira · arranque». `admira.enabled: false` lo desactiva y `admira.launcher` indica su acceso directo si no está en `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\ADmira.lnk` ni en `C:\admira\admira.exe`.
 
-Esto vale para el Admira del PC. Una tele que se encienda antes que el PC y abra la URL sin servidor necesita recargar su contenido desde Admira.
+Esto vale para el Admira del PC. En la tele (Admira en el software de Samsung) no se puede reiniciar nada desde el PC, así que se publica `admira/cargador` como contenido HTML de Admira, en lugar de la URL. Comprime el contenido de esa carpeta en un .zip, con `index.html` en la raíz, y súbelo como contenido HTML. El cargador es local en la tele: espera en negro a que el servidor del PC conteste y entonces carga la pantalla a pantalla completa, así que da igual que la tele se encienda antes que el PC. Si la carga falla, vuelve a esperar y la reintenta. Apunta a `http://192.168.1.13:8002/nfc`; si cambia la IP del PC, cambia `DESTINO` en `index.html`. También sirve en el PC, con `/figuras`, si prefieres no reiniciar Admira.
 
 Si tienes permisos de administrador, también sirve una tarea del Programador de tareas «Al iniciar la sesión» que ejecute `iniciar_bigbang.bat`. En ese caso desmarca «Detener la tarea si se ejecuta durante más de 3 días», que la cerraría a los tres días.
 
@@ -129,6 +129,8 @@ Si un vídeo de acción no se puede cargar, se vuelve a la base. Si falla el ví
 ### Reproductor de cartelería (Admira)
 
 Las pantallas se muestran en el reproductor de Admira, que en Android usa un Chromium antiguo. Por eso `player.js` y `overlay.js` están escritos en ES5: sin `const`/`let`, funciones flecha, `async`, `fetch` ni `?.`, y con `XMLHttpRequest`. El CSS de las pantallas evita `inset`, `dvh`, `aspect-ratio`, `gap` en flex, `color-mix` y los colores de 8 cifras. Son las mismas reglas que los contenidos de cartelería de controlStore. Una sola sintaxis nueva impide que el script arranque y deja la pantalla en negro, así que las pruebas JavaScript lo comprueban. El panel de control (`control.js`) no tiene esa restricción.
+
+Las páginas y los archivos web se sirven con `Cache-Control: no-cache`, y las páginas enlazan sus archivos con la versión de la web (`?v=…`). Sin eso, el reproductor reutilizaba copias viejas durante horas: un logo cambiado no aparecía por más que se reiniciara Admira. Además, cada pantalla compara su versión con la del servidor y, si ha cambiado, se recarga sola, como mucho una vez cada 5 minutos. Para actualizar basta con hacer `pull` y reiniciar la aplicación en el PC, sin tocar la tele. La primera vez que se instala esta versión, la tele puede tardar unas horas en soltar las copias que ya tenía guardadas, salvo que use el cargador, que siempre pide la página de nuevo.
 
 Cada vez que un dispositivo abre una pantalla, la consola anota su navegador, por ejemplo `Pantalla nfc abierta desde 192.168.1.50 · Mozilla/5.0 (Linux; Android …) Chrome/…`. Así se sabe qué versión de Chromium tiene el reproductor.
 
@@ -276,7 +278,7 @@ Las dos bases y los siete estados del clima ya tienen rutas asignadas con los v�
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pytest -q
-node --test tests/player.test.cjs tests/overlay.test.cjs
+node --test tests/player.test.cjs tests/overlay.test.cjs tests/cargador.test.cjs
 ```
 
 Node solo es necesario para las pruebas JavaScript, no para ejecutar la aplicación. Estas pruebas cubren eventos simultáneos, interrupciones, fin de vídeo, retorno a la base, lecturas NFC repetidas y fallidas, reconexión, clasificación del clima, estabilidad de la detección y los indicadores NFC superpuestos. Las pruebas del reproductor simulan eventos multimedia: no sustituyen comprobar tus vídeos reales en el navegador y con la cámara/lectores del montaje.
@@ -287,6 +289,7 @@ La organización principal es:
 main.py                 Arranque único
 iniciar_bigbang.bat     Arranque con reinicio si se cierra
 instalar_inicio.bat     Acceso directo en la carpeta Inicio (arranque al encender)
+admira/cargador/        Contenido HTML de Admira para la tele: espera al servidor
 config.json             Dispositivos, clima y vídeos
 aliases.json            UID NFC → nombre
 barcode_id.json         Código de barras → contenido de figuras

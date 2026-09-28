@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <title>BigBang · Audio</title>
-  <script defer src="/static/player.js"></script>
+  <script defer src="/static/player.js?v={{v}}"></script>
 </head>
-<body data-role="audio">
+<body data-role="audio" data-version="{{v}}">
   <!--
     Solo el sonido de una pantalla con audio_on_pc, sincronizado con ella por el reloj del
     servidor. La aplicación la abre en un navegador sin ventana del PC (display_app/audio.py).

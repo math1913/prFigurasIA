@@ -432,6 +432,22 @@ def test_screen_pages_log_the_player_browser(settings, caplog):
     assert f"Pantalla nfc abierta desde testclient · {agent}" in caplog.text
 
 
+def test_pages_and_web_files_are_revalidated_with_their_version(settings):
+    from display_app.server import web_version
+    version = web_version()
+    with TestClient(create_app(settings=settings, demo=True)) as client:
+        overlay = client.get("/overlay")
+        assert f"/static/img/beatles.png?v={version}" in overlay.text
+        for path in ["/", "/figuras", "/nfc", "/overlay", "/audio/nfc"]:
+            page = client.get(path)
+            assert page.headers["cache-control"] == "no-cache" and "{{v}}" not in page.text
+        assert f'data-version="{version}"' in client.get("/nfc").text
+        asset = client.get("/static/player.js")
+        assert asset.headers["cache-control"] == "no-cache"
+        assert client.get("/static/player.js", headers={"If-None-Match": asset.headers["etag"]}).status_code == 304
+        assert client.get("/api/state/nfc").json()["version"] == version
+
+
 def test_overlay_only_on_configured_channels(settings):
     state = DisplayState(settings)
     assert state.snapshot("nfc")["overlay"] and not state.snapshot("figuras")["overlay"]

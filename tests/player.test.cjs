@@ -13,9 +13,9 @@ const snapshot = (overrides = {}) => ({
   ...overrides,
 });
 
-function harness(initial, {role, channel = "figuras", pathname} = {}) {
+function harness(initial, {role, channel = "figuras", pathname, version, framed = false} = {}) {
   const env = {state: initial, offline: false, blocked: false, legacy: false, completions: [], timers: new Map(),
-               siblings: [], urls: [], now: 0};
+               siblings: [], urls: [], now: 0, reloads: 0, messages: [], storage: {}};
   let timerId = 0;
   class Element {
     constructor(tag) {
@@ -70,16 +70,18 @@ function harness(initial, {role, channel = "figuras", pathname} = {}) {
   elements.stage.parentNode = new Element("body");
   const context = vm.createContext({
     document: {
-      body: {dataset: {channel: pathname ? undefined : channel, role}},
+      body: {dataset: {channel: pathname ? undefined : channel, role, version}},
       querySelector: selector => elements[selector.slice(1)],
       createElement: tag => new Element(tag),
     },
-    location: {pathname: pathname ?? "/" + channel},
+    location: {pathname: pathname ?? "/" + channel, reload: () => { env.reloads += 1; }},
+    localStorage: {getItem: key => env.storage[key] ?? null, setItem: (key, value) => { env.storage[key] = value; }},
     performance: {now: () => env.now},
     console: {error() {}, warn() {}}, XMLHttpRequest: FakeXHR,
     setTimeout: (fn, ms) => { const id = ++timerId; env.timers.set(id, {fn, ms}); return id; },
     clearTimeout: id => env.timers.delete(id),
   });
+  if (framed) context.window = {parent: {postMessage: (message, origin) => env.messages.push([message, origin])}};
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../web/player.js"), "utf8"), context);
   env.poll = async () => { vm.runInContext("poll()", context); await flush(); };
   env.timer = ms => [...env.timers.values()].find(timer => timer.ms === ms);
@@ -318,11 +320,33 @@ test("al terminar un vídeo, la base no vuelve a empezar cuando el servidor lo c
   assert.equal(env.video(), playing);
 });
 
+test("si el servidor tiene otra versión de la web, la pantalla se recarga una sola vez", async () => {
+  const env = harness(snapshot({version: "200"}), {version: "100"}); await flush();
+  assert.equal(env.reloads, 1);
+  await env.poll();
+  assert.equal(env.reloads, 1);  // Como mucho una vez cada 5 minutos: nunca en bucle.
+  const same = harness(snapshot({version: "100"}), {version: "100"}); await flush();
+  assert.equal(same.reloads, 0);
+});
+
+test("el overlay se pide con la versión de la página y el cargador de Admira recibe el aviso", async () => {
+  const env = harness(snapshot({overlay: true}), {version: "100", framed: true}); await flush();
+  assert.equal(env.siblings[0].src, "/overlay?v=100");
+  assert.deepEqual(env.messages, [["bigbang-lista", "*"]]);
+  await env.poll();
+  assert.equal(env.messages.length, 1);
+});
+
 test("player.js y overlay.js siguen en ES5 para el Chromium antiguo del reproductor", () => {
   const modern = [/=>/, /`/, /\?\./, /\?\?/, /\b(const|let|class|async|await)\s/, /\.\.\.[\w$[{(]/,
     /\b(fetch|AbortSignal|replaceChildren|queueMicrotask|structuredClone)\s*[.(]/, /\.(append|prepend|after|before|replaceWith)\(/];
-  for (const file of ["player.js", "overlay.js"]) {
-    const source = fs.readFileSync(path.join(__dirname, "../web", file), "utf8");
+  const loader = fs.readFileSync(path.join(__dirname, "../admira/cargador/index.html"), "utf8");
+  const sources = {
+    "player.js": fs.readFileSync(path.join(__dirname, "../web/player.js"), "utf8"),
+    "overlay.js": fs.readFileSync(path.join(__dirname, "../web/overlay.js"), "utf8"),
+    "admira/cargador": loader.match(/<script>([\s\S]*?)<\/script>/)[1],
+  };
+  for (const [file, source] of Object.entries(sources)) {
     for (const pattern of modern) assert.doesNotMatch(source, pattern, `${file} usa ${pattern}`);
   }
 });

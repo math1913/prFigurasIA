@@ -7,7 +7,7 @@ import threading
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -32,9 +32,24 @@ class Completion(BaseModel):
     event_id: str
 
 
+class RevalidatedStaticFiles(StaticFiles):
+    """Sin Cache-Control, los reproductores reutilizan copias viejas durante horas sin preguntar."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"  # Se revalida siempre: 304 si no ha cambiado.
+        return response
+
+
+def web_version():
+    """Cambia con cualquier archivo de web/: va en las URL de los archivos y en el estado."""
+    return str(int(max(path.stat().st_mtime for path in (ROOT / "web").rglob("*") if path.is_file())))
+
+
 def create_app(config_path: Path | None = None, demo=False, settings=None, port=8002):
     settings = settings or load_settings(config_path)
     state = DisplayState(settings)
+    version = web_version()
 
     @asynccontextmanager
     async def lifespan(app):
@@ -68,15 +83,20 @@ def create_app(config_path: Path | None = None, demo=False, settings=None, port=
     app = FastAPI(title="BigBang · Figuras y NFC", lifespan=lifespan)
     app.state.displays = state
 
+    def html(page):
+        # {{v}} en las URL de sus archivos: un reproductor con copias viejas en caché pide las nuevas.
+        content = (ROOT / "web" / f"{page}.html").read_text(encoding="utf-8").replace("{{v}}", version)
+        return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
+
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(ROOT / "web" / "index.html")
+        return html("index")
 
     def screen(name, request, page=None):
         # Identifica al reproductor que abre la pantalla: su versión de Chromium explica los fallos de compatibilidad.
         log.info("Pantalla %s abierta desde %s · %s", name, request.client.host if request.client else "?",
                  request.headers.get("user-agent", "sin User-Agent"))
-        return FileResponse(ROOT / "web" / f"{page or name}.html")
+        return html(page or name)
 
     @app.get("/figuras", include_in_schema=False)
     def figures_page(request: Request):
@@ -99,7 +119,8 @@ def create_app(config_path: Path | None = None, demo=False, settings=None, port=
         response.headers["Cache-Control"] = "no-store"
         if audio:
             state.saw_audio_page(channel)
-        return state.snapshot(channel)
+        # Si la pantalla tiene otra versión de la web, se recarga sola para usar la nueva.
+        return {**state.snapshot(channel), "version": version}
 
     @app.post("/api/complete/{channel}")
     def complete(channel: ChannelName, event: Completion):
@@ -158,6 +179,6 @@ def create_app(config_path: Path | None = None, demo=False, settings=None, port=
         state.trigger(channel, event.key, restart=channel != "nfc")
         return {"accepted": True}
 
-    app.mount("/static", StaticFiles(directory=ROOT / "web"), name="static")
+    app.mount("/static", RevalidatedStaticFiles(directory=ROOT / "web"), name="static")
     app.mount("/media", StaticFiles(directory=ROOT / "media"), name="media")
     return app

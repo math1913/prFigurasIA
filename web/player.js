@@ -16,6 +16,9 @@ var role = document.body.dataset.role === "audio" ? "audio" : "screen";
 var channel = document.body.dataset.channel || location.pathname.split("/").pop();
 var stage = document.querySelector("#stage");
 var connection = document.querySelector("#connection");
+// Versión de la web con la que se sirvió esta página; si el servidor tiene otra, se recarga.
+var pageVersion = document.body.dataset.version;
+var announced = false;
 var token = null;
 var latest = null;
 var clock = null;
@@ -286,13 +289,38 @@ function syncOverlay(enabled) {
   }
   overlay = document.createElement("iframe");
   overlay.className = "overlay-frame";
-  overlay.src = "/overlay";
+  overlay.src = "/overlay" + (pageVersion ? "?v=" + pageVersion : "");
   overlay.title = "Indicadores NFC";
   overlay.tabIndex = -1;
   stage.parentNode.insertBefore(overlay, stage.nextSibling);
 }
 
+// Tras actualizar el servidor, la pantalla se recarga sola para usar los archivos nuevos. Como
+// mucho una vez cada 5 minutos: si un reproductor insistiera en su copia vieja, no entra en bucle.
+function reloadForUpdate() {
+  var at = new Date().getTime();
+  var last = 0;
+  try {
+    last = Number(localStorage.getItem("bigbang-recarga")) || 0;
+    if (at - last < 300000) return;
+    localStorage.setItem("bigbang-recarga", String(at));
+  } catch (error) {
+    return;  // Sin almacenamiento no hay forma de evitar el bucle: se sigue con esta versión.
+  }
+  location.reload();
+}
+
+// Avisa al cargador de Admira (admira/cargador), si la pantalla va dentro de él, de que ya arrancó.
+function announce() {
+  if (announced) return;
+  announced = true;
+  if (typeof window !== "undefined" && window.parent && window.parent !== window) {
+    window.parent.postMessage("bigbang-lista", "*");
+  }
+}
+
 function applySnapshot(state) {
+  if (state.version && pageVersion && state.version !== pageVersion) reloadForUpdate();
   latest = state;
   clock = {elapsed: state.elapsed_seconds || 0, at: now(), mode: state.mode,
            src: state.content.src || null, id: state.event_id || null};
@@ -328,6 +356,7 @@ function poll() {
       if (!error) {
         try {
           applySnapshot(state);
+          announce();
         } catch (problem) {
           error = problem;
         }

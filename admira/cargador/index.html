@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BigBang · Cargador</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; cursor: none; }
+    iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <!--
+    Contenido local de Admira para la tele: espera a que el servidor del PC conteste y entonces carga
+    la pantalla. Así da igual que la tele se encienda antes que el PC. Se publica en Admira como
+    contenido HTML (esta carpeta, comprimida en .zip), no como URL.
+    Si cambia la IP del PC o la pantalla, cambia DESTINO. ES5, como el resto de la cartelería.
+  -->
+  <script>
+    "use strict";
+    var DESTINO = "http://192.168.1.13:8002/nfc";
+
+    var server = DESTINO.replace(/^(https?:\/\/[^\/]+).*$/, "$1");
+    var frame = null;
+    var ready = false;
+    var retried = false;
+    var readyTimer = null;
+
+    // Una imagen se carga desde otro origen sin permisos especiales: si llega, el servidor contesta.
+    function probe(done) {
+      var image = new Image();
+      var settled = false;
+      function settle(ok) {
+        if (settled) return;
+        settled = true;
+        done(ok);
+      }
+      image.onload = function () { settle(true); };
+      image.onerror = function () { settle(false); };
+      setTimeout(function () { settle(false); }, 5000);
+      image.src = server + "/static/img/superman.png?t=" + new Date().getTime();
+    }
+
+    function waitForServer() {
+      probe(function (ok) {
+        if (ok) show();
+        else setTimeout(waitForServer, 2000);
+      });
+    }
+
+    function show() {
+      ready = false;
+      if (frame) frame.parentNode.removeChild(frame);
+      frame = document.createElement("iframe");
+      frame.setAttribute("allow", "autoplay; fullscreen");
+      // Una URL nueva cada vez: la tele no puede usar una copia vieja de la página guardada en caché.
+      frame.src = DESTINO + (DESTINO.indexOf("?") === -1 ? "?" : "&") + "t=" + new Date().getTime();
+      document.body.appendChild(frame);
+      // La pantalla avisa al arrancar (player.js). Si no lo hace, se comprueba qué pasó.
+      clearTimeout(readyTimer);
+      readyTimer = setTimeout(check, 20000);
+    }
+
+    function check() {
+      if (ready) return;
+      probe(function (ok) {
+        // El servidor no contesta: la carga falló. Se espera a que vuelva y se carga otra vez.
+        if (!ok) {
+          waitForServer();
+          return;
+        }
+        // Contesta pero la pantalla no avisó: un solo reintento. Si tampoco avisa, se deja como
+        // está en vez de recargarla una y otra vez (puede que el aviso no llegue en este reproductor).
+        if (!retried) {
+          retried = true;
+          show();
+        }
+      });
+    }
+
+    window.addEventListener("message", function (event) {
+      if (event.data !== "bigbang-lista") return;
+      ready = true;
+      retried = false;
+    }, false);
+
+    waitForServer();
+  </script>
+</body>
+</html>

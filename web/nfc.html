@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BigBang · NFC</title>
-  <link rel="stylesheet" href="/static/styles.css">
-  <script defer src="/static/player.js"></script>
+  <link rel="stylesheet" href="/static/styles.css?v={{v}}">
+  <script defer src="/static/player.js?v={{v}}"></script>
 </head>
-<body class="display" data-channel="nfc">
+<body class="display" data-channel="nfc" data-version="{{v}}">
   <main id="stage" aria-live="polite"></main>
   <span id="connection" class="connection" hidden>Reconectando…</span>
 </body>
