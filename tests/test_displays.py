@@ -403,6 +403,16 @@ def test_screen_pages_log_the_player_browser(settings, caplog):
     assert f"Pantalla nfc abierta desde testclient · {agent}" in caplog.text
 
 
+def test_screen_size_is_logged_with_the_missing_band(settings, caplog):
+    with TestClient(create_app(settings=settings, demo=True)) as client, caplog.at_level("INFO"):
+        size = {"width": 1920, "height": 1036, "screen_width": 1920, "screen_height": 1080, "ratio": 1}
+        assert client.post("/api/screen/nfc", json=size).json() == {"accepted": True}
+        client.post("/api/screen/figuras", json={**size, "height": 1080})
+    assert ("Pantalla nfc en testclient: página 1920×1036, pantalla 1920×1080, escala 1"
+            " · a la página le faltan 44 px de alto") in caplog.text
+    assert "Pantalla figuras en testclient: página 1920×1080, pantalla 1920×1080, escala 1\n" in caplog.text
+
+
 def test_overlay_only_on_configured_channels(settings):
     state = DisplayState(settings)
     assert state.snapshot("nfc")["overlay"] and not state.snapshot("figuras")["overlay"]

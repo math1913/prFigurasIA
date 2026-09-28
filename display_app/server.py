@@ -31,6 +31,14 @@ class Completion(BaseModel):
     event_id: str
 
 
+class ScreenSize(BaseModel):
+    width: float
+    height: float
+    screen_width: float | None = None
+    screen_height: float | None = None
+    ratio: float = 1
+
+
 def create_app(config_path: Path | None = None, demo=False, settings=None, port=8002):
     settings = settings or load_settings(config_path)
     state = DisplayState(settings)
@@ -98,6 +106,16 @@ def create_app(config_path: Path | None = None, demo=False, settings=None, port=
         if audio:
             state.saw_audio_page(channel)
         return state.snapshot(channel)
+
+    @app.post("/api/screen/{channel}")
+    def screen_size(channel: ChannelName, size: ScreenSize, request: Request):
+        # Si la página mide menos que la pantalla, la franja que falta la reserva el reproductor.
+        display = f"{size.screen_width:g}×{size.screen_height:g}" if size.screen_width and size.screen_height else "?"
+        missing = (size.screen_height or 0) - size.height
+        log.info("Pantalla %s en %s: página %g×%g, pantalla %s, escala %g%s", channel,
+                 request.client.host if request.client else "?", size.width, size.height, display, size.ratio,
+                 f" · a la página le faltan {missing:g} px de alto" if missing >= 1 else "")
+        return {"accepted": True}
 
     @app.post("/api/complete/{channel}")
     def complete(channel: ChannelName, event: Completion):
