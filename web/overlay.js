@@ -41,4 +41,9 @@ function poll() {
   xhr.send(null);
 }
 
-poll();
+// /overlay?logos=todos (o /nfc?logos=todos) enseña todos los logos fijos, para ver cómo quedan sin lectores.
+if (typeof location !== "undefined" && (location.search || "").indexOf("logos=todos") !== -1) {
+  show({Superman: true, Prince: true, Jackson: true, Beatles: true});
+} else {
+  poll();
+}

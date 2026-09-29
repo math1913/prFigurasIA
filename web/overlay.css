@@ -2,8 +2,9 @@
 :root { color-scheme: dark; background: transparent; }
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; cursor: none; }
 /* Sin flex, gap ni dvw: el reproductor de cartelería usa un Chromium antiguo. */
-#indicator-list { position: fixed; top: 20px; left: 20px; pointer-events: none; }
+/* Fila centrada abajo: inline-block y text-align, sin flex. font-size 0 quita el hueco entre bloques. */
+#indicator-list { position: fixed; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 0; pointer-events: none; }
 /* Oculto por defecto; overlay.js añade present mientras el lector lo detecta. Sin animación. */
 .indicator { display: none; }
-.indicator.present { display: block; margin-bottom: 8px; }
+.indicator.present { display: inline-block; vertical-align: bottom; margin: 0 1.5vw; }
 .indicator img { display: block; min-width: 28px; width: 1.5vw; }

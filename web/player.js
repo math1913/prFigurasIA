@@ -289,7 +289,8 @@ function syncOverlay(enabled) {
   }
   overlay = document.createElement("iframe");
   overlay.className = "overlay-frame";
-  overlay.src = "/overlay" + (pageVersion ? "?v=" + pageVersion : "");
+  overlay.src = "/overlay?v=" + (pageVersion || "") +
+    (typeof location !== "undefined" && (location.search || "").indexOf("logos=todos") !== -1 ? "&logos=todos" : "");
   overlay.title = "Indicadores NFC";
   overlay.tabIndex = -1;
   stage.parentNode.insertBefore(overlay, stage.nextSibling);

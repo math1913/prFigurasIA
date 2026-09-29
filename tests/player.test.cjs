@@ -236,7 +236,7 @@ test("superpone los indicadores NFC solo si la pantalla lo tiene configurado", a
   assert.equal(env.siblings.length, 1);
   const [frame] = env.siblings;
   assert.equal(frame.tag, "iframe");
-  assert.equal(frame.src, "/overlay");
+  assert.equal(frame.src, "/overlay?v=");
   await env.poll();
   assert.equal(env.siblings.length, 1);
   env.state = snapshot({session: "restarted", overlay: false});
