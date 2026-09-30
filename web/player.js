@@ -29,6 +29,14 @@ var finishedEvent = null;
 var activeVideo = null;
 var renderVersion = 0;
 var overlay = null;
+// Fundido entre vídeos. Cada relevo lleva su número: así un temporizador del anterior no
+// descubre el vídeo que ya no toca. Con fade_ms a 0 nada de esto llega a ocurrir.
+var veil = null;
+var transition = 0;
+var fadeHalf = 0;
+var revealed = true;
+var volumeTimer = null;
+var earlyTimer = null;
 
 function now() {
   return typeof performance !== "undefined" && performance.now ? performance.now() : new Date().getTime();
@@ -121,8 +129,102 @@ function startAt(video, state) {
   return state.mode === "event" && state.elapsed_seconds > 0.5 ? state.elapsed_seconds : 0;
 }
 
+// Lo que dura el paso por negro entero, según la pantalla.
+function configuredFade() {
+  return latest && latest.fade_ms > 0 ? latest.fade_ms : 0;
+}
+
+// El primer vídeo tras cargar la página no se hace esperar: no hay nada que fundir todavía.
+function fadeLength() {
+  return shown ? configuredFade() : 0;
+}
+
+// Velo negro entre el vídeo y los logos de /overlay. Se crea la primera vez que hace falta,
+// así una pantalla sin fundido no lo tiene ni en la página.
+function veilTo(opacity, ms) {
+  if (!veil) {
+    veil = document.createElement("div");
+    veil.className = "veil";
+    veil.setAttribute("aria-hidden", "true");
+    stage.parentNode.insertBefore(veil, stage.nextSibling);
+  }
+  veil.style.transitionDuration = ms + "ms";
+  // Leer una medida aplica el estado de partida antes de cambiarlo: sin esta lectura, un velo
+  // recién creado saltaría al valor nuevo de golpe, sin fundirse. El valor no se usa.
+  veil.measured = veil.offsetWidth;
+  veil.style.opacity = String(opacity);
+}
+
+// El volumen no se puede animar desde la hoja de estilos: se baja y se sube a pasos.
+function rampVolume(element, to, ms, step) {
+  clearTimeout(volumeTimer);
+  var steps = Math.max(1, Math.round(ms / 40));
+  var from = typeof element.volume === "number" ? element.volume : 1;
+  var done = 0;
+  function tick() {
+    // Un relevo nuevo, o un vídeo que ya no es el que suena, deja la rampa a medias.
+    if (step !== transition || element !== activeVideo) return;
+    done += 1;
+    element.volume = Math.max(0, Math.min(1, from + (to - from) * done / steps));
+    if (done < steps) volumeTimer = setTimeout(tick, 40);
+  }
+  volumeTimer = setTimeout(tick, 40);
+}
+
+// Un paso del fundido: a negro y sin sonido, o de vuelta. La pantalla cierra el velo y la
+// página de audio solo tiene volumen, pero los dos tardan lo mismo para ir a la par.
+function fadeTo(dark, ms, step) {
+  if (role === "screen") veilTo(dark ? 1 : 0, ms);
+  if (activeVideo) rampVolume(activeVideo, dark ? 0 : 1, ms, step);
+}
+
+// Descubre el vídeo nuevo cuando ya se mueve, o al agotarse el tope: uno que no arranque
+// nunca no puede dejar la pantalla en negro.
+function reveal(step) {
+  if (step !== transition || revealed) return;
+  revealed = true;
+  fadeTo(false, fadeHalf, step);
+}
+
+// Cambia lo que se ve. Con fade_ms, el vídeo que sale se funde y el que entra aparece cuando
+// ya se mueve; con 0, el cambio es inmediato, igual que sin fundido.
+function present(content, state, fallback) {
+  var ms = fadeLength();
+  // Se anota ya lo que va a verse: durante el fundido siguen llegando instantáneas, y la base
+  // que se acaba de pedir no debe volver a pedirse a mitad del relevo.
+  shown = {mode: state.mode, src: content.src || null, session: latest ? latest.session : null};
+  if (!ms) {
+    render(content, state, fallback);
+    return;
+  }
+  var step = ++transition;
+  fadeHalf = ms / 2;
+  revealed = false;
+  fadeTo(true, fadeHalf, step);
+  setTimeout(function () {
+    if (step !== transition) return;
+    // El vídeo se cambia con el velo ya cerrado; lo que tarde en arrancar tampoco se ve.
+    render(content, state, fallback);
+    if (activeVideo) activeVideo.volume = 0;
+    setTimeout(function () { reveal(step); }, 5000);
+  }, fadeHalf + 50);
+}
+
+// El fundido de vuelta a la base empieza justo antes de que acabe la canción: esperar a ended
+// dejaría el vídeo terminado y el paso por negro no fundiría nada.
+function fadeBeforeEnd(video, version, id) {
+  var ms = configuredFade();
+  if (!ms || !isFinite(video.duration) || !(video.duration > 0)) return;
+  var left = (video.duration - video.currentTime) * 1000 - ms / 2;
+  if (left <= 0) return;
+  earlyTimer = setTimeout(function () {
+    if (version === renderVersion) finish(id);
+  }, left);
+}
+
 function render(content, state, fallback) {
   var version = ++renderVersion;
+  clearTimeout(earlyTimer);
   if (activeVideo) {
     activeVideo.pause();
     activeVideo.removeAttribute("src");
@@ -132,6 +234,7 @@ function render(content, state, fallback) {
   shown = {mode: state.mode, src: content.src || null, session: latest ? latest.session : null};
   if (!content.src) {
     show(placeholder(content, state.mode === "event"));
+    reveal(transition);  // No hay ningún vídeo cuyo arranque esperar.
     return;
   }
   var video = document.createElement(role === "audio" ? "audio" : "video");
@@ -150,6 +253,7 @@ function render(content, state, fallback) {
   video.addEventListener("playing", function () {
     video.started = true;
     video.pausedChecks = 0;
+    if (version === renderVersion) reveal(transition);
   });
   video.addEventListener("ended", function () {
     if (version !== renderVersion) return;
@@ -182,6 +286,7 @@ function render(content, state, fallback) {
     }
     if (position > 0.25) video.currentTime = position;
     start(video);
+    if (state.mode === "event") fadeBeforeEnd(video, version, state.event_id);
   });
   if (state.mode === "event") {
     // Un vídeo que no arranca ni da error no puede dejar la pantalla en negro hasta max_event_seconds.
@@ -273,7 +378,7 @@ function finish(id) {
   finishedEvent = id;
   pendingCompletion = id;
   // Vuelve a la base incluso si se pierde la conexión al finalizar el vídeo.
-  render(latest.base, {mode: "base"}, latest.fallback_base);
+  present(latest.base, {mode: "base"}, latest.fallback_base);
   sendCompletion(function (error) {
     if (error) connection.hidden = false;
   });
@@ -334,7 +439,7 @@ function applySnapshot(state) {
   // La base que ya suena al terminar un vídeo no vuelve a empezar cuando el servidor lo confirma.
   if (state.mode === "base" && shown && shown.mode === "base" && shown.session === state.session
       && shown.src === (state.content.src || null)) return;
-  render(state.content, state, state.fallback_base);
+  present(state.content, state, state.fallback_base);
   if (state.mode === "event") {
     expiryTimer = setTimeout(function () { finish(state.event_id); }, state.remaining_ms);
   }

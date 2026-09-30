@@ -193,6 +193,7 @@
       "fit": "cover",
       "audio_on_pc": true,
       "audio_delay_ms": 0,
+      "fade_ms": 600,
       "base": {
         "title": "Una nueva historia en tus manos",
         "src": "/media/pantalla/bigBangIntro.mp4",

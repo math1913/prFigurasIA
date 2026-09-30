@@ -36,6 +36,9 @@ class Channel(SettingsModel):
     audio_on_pc: bool = False
     # Retrasa el sonido del PC para compensar lo que tarda la pantalla en mostrar la imagen.
     audio_delay_ms: int = Field(default=0, ge=-2000, le=2000)
+    # Paso por negro al cambiar de vídeo: la mitad se va y la mitad vuelve. Donde salga el
+    # sonido, baja y sube con él. 0 deja el cambio instantáneo.
+    fade_ms: int = Field(default=0, ge=0, le=5000)
     base: Video
     events: dict[str, Video]
 

@@ -106,6 +106,7 @@ class DisplayState:
                 "fit": config.fit,
                 "audio_on_pc": config.audio_on_pc,
                 "audio_delay_ms": config.audio_delay_ms,
+                "fade_ms": config.fade_ms,
             }
 
     def saw_audio_page(self, channel):

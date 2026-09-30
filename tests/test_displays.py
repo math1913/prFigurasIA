@@ -261,6 +261,8 @@ def test_base_clock_and_screen_settings(settings, clock):
     base = state.snapshot("nfc")
     assert base["elapsed_seconds"] == 7 and base["fit"] == "cover"
     assert base["audio_on_pc"] and not state.snapshot("figuras")["audio_on_pc"]
+    # La tele funde entre canciones; la pantalla de figuras cambia de golpe, como siempre.
+    assert base["fade_ms"] == 600 and state.snapshot("figuras")["fade_ms"] == 0
     state.trigger("nfc", "Prince")
     clock.advance(3)
     event = state.snapshot("nfc")

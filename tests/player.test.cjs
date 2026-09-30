@@ -21,6 +21,7 @@ function harness(initial, {role, channel = "figuras", pathname, version, framed 
     constructor(tag) {
       this.tag = tag; this.children = []; this.listeners = {}; this.hidden = true; this.paused = true;
       this.duration = 12; this.currentTime = 0; this.playbackRate = 1; this.dataset = {}; this.attributes = {};
+      this.style = {}; this.volume = 1;
     }
     get firstChild() { return this.children[0] ?? null; }
     setAttribute(key, value) { this.attributes[key] = value; }
@@ -84,7 +85,12 @@ function harness(initial, {role, channel = "figuras", pathname, version, framed 
   if (framed) context.window = {parent: {postMessage: (message, origin) => env.messages.push([message, origin])}};
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../web/player.js"), "utf8"), context);
   env.poll = async () => { vm.runInContext("poll()", context); await flush(); };
-  env.timer = ms => [...env.timers.values()].find(timer => timer.ms === ms);
+  // El último pedido con esa duración: una rampa de volumen encadena varios de 40 ms y el
+  // que queda pendiente es siempre el último.
+  env.timer = ms => [...env.timers.values()].reverse().find(timer => timer.ms === ms);
+  env.veil = () => env.siblings.find(node => node.className === "veil");
+  // Los ocho pasos en que se reparte media rampa de volumen de un fundido de 600 ms.
+  env.ramp = () => { for (let step = 0; step < 8; step += 1) env.timer(40).fn(); };
   env.elements = elements;
   env.video = () => elements.stage.children[0];
   return env;
@@ -335,6 +341,85 @@ test("el overlay se pide con la versión de la página y el cargador de Admira r
   assert.deepEqual(env.messages, [["bigbang-lista", "*"]]);
   await env.poll();
   assert.equal(env.messages.length, 1);
+});
+
+test("con fade_ms el cambio pasa por negro y el velo se abre cuando el vídeo ya se mueve", async () => {
+  const env = harness(snapshot({fade_ms: 600})); await flush();
+  const first = env.video();
+  assert.equal(env.veil(), undefined);  // El primer vídeo tras cargar la página no se hace esperar.
+  env.state = snapshot({fade_ms: 600, revision: 1, mode: "event", event_id: "one", content: {...base, src: "/media/one.mp4"}});
+  await env.poll();
+  assert.equal(env.veil().style.opacity, "1");
+  assert.equal(env.veil().style.transitionDuration, "300ms");
+  assert.equal(env.video(), first);  // Sigue el de antes: el velo todavía se está cerrando.
+  env.timer(350).fn(); await flush();
+  assert.equal(env.video().src, "/media/one.mp4");
+  assert.equal(env.veil().style.opacity, "1");  // Cerrado hasta que el nuevo se mueva.
+  env.video().emit("playing");
+  assert.equal(env.veil().style.opacity, "0");
+});
+
+test("un vídeo que no llega a moverse no deja la pantalla en negro", async () => {
+  const env = harness(snapshot({fade_ms: 600})); await flush();
+  env.state = snapshot({fade_ms: 600, revision: 1, mode: "event", event_id: "mudo", content: {...base, src: "/media/mudo.mp4"}});
+  await env.poll();
+  env.timer(350).fn(); await flush();
+  assert.equal(env.veil().style.opacity, "1");
+  env.timer(5000).fn();
+  assert.equal(env.veil().style.opacity, "0");
+});
+
+test("sin fade_ms el cambio sigue siendo inmediato y no hay velo", async () => {
+  const env = harness(snapshot()); await flush();
+  env.state = snapshot({revision: 1, mode: "event", event_id: "one", content: {...base, src: "/media/one.mp4"}});
+  await env.poll();
+  assert.equal(env.video().src, "/media/one.mp4");
+  assert.deepEqual(env.siblings, []);
+});
+
+test("el sonido del PC baja y sube en el mismo fundido que la pantalla", async () => {
+  const song = {title: "Canción", src: "/media/song.mp4", muted: false};
+  const paired = {audio_on_pc: true, fade_ms: 600, content: song, base: song};
+  const env = harness(snapshot(paired), {role: "audio", pathname: "/audio/nfc"}); await flush();
+  const first = env.video();
+  env.state = snapshot({...paired, revision: 1, mode: "event", event_id: "one", content: {...song, src: "/media/one.mp4"}});
+  await env.poll();
+  assert.deepEqual(env.siblings, []);  // La página de audio no tiene velo que cerrar.
+  env.ramp();
+  assert.equal(first.volume, 0);
+  env.timer(350).fn(); await flush();
+  assert.equal(env.video().volume, 0);  // El nuevo entra callado y no sube hasta que suena.
+  env.video().emit("playing");
+  env.ramp();
+  assert.equal(env.video().volume, 1);
+});
+
+test("un cambio durante el fundido sustituye al anterior", async () => {
+  const env = harness(snapshot({fade_ms: 600})); await flush();
+  env.state = snapshot({fade_ms: 600, revision: 1, mode: "event", event_id: "one", content: {...base, src: "/media/one.mp4"}});
+  await env.poll();
+  const abandoned = env.timer(350);
+  env.state = snapshot({fade_ms: 600, revision: 2, mode: "event", event_id: "two", content: {...base, src: "/media/two.mp4"}});
+  await env.poll();
+  abandoned.fn(); await flush();
+  assert.equal(env.video().src, "/media/base.mp4");  // El relevo viejo ya no cambia nada.
+  env.timer(350).fn(); await flush();
+  assert.equal(env.video().src, "/media/two.mp4");
+});
+
+test("la canción empieza a fundirse antes de acabar, no cuando ya ha terminado", async () => {
+  const env = harness(snapshot({fade_ms: 600, revision: 1, mode: "event", event_id: "one"})); await flush();
+  const song = env.video();
+  song.duration = 30;
+  song.emit("loadedmetadata"); await flush();
+  env.timer(29700).fn(); await flush();  // 30 s menos la mitad del fundido.
+  assert.deepEqual(env.completions, ["one"]);
+  assert.equal(env.video(), song);  // Sigue sonando mientras se funde.
+  assert.equal(env.veil().style.opacity, "1");
+  env.timer(350).fn(); await flush();
+  assert.equal(env.video().loop, true);
+  song.emit("ended"); await flush();  // El final de verdad ya no vuelve a terminar nada.
+  assert.deepEqual(env.completions, ["one"]);
 });
 
 test("player.js y overlay.js siguen en ES5 para el Chromium antiguo del reproductor", () => {
