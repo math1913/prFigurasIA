@@ -44,12 +44,23 @@ class Figures(SettingsModel):
     enabled: bool = True
     model: str = "yoloFiguritasv2.pt"
     camera: int | str = 0
-    confidence: float = Field(default=0.8, gt=0, le=1)
+    # Como el script antiguo: la ventana muestra detecciones desde display_confidence (CONF_MOSTRAR)
+    # y solo activan el vídeo las que llegan a confidence (CONF_ADMIRA).
+    confidence: float = Field(default=0.9, gt=0, le=1)
+    display_confidence: float = Field(default=0.6, gt=0, le=1)
     stable_seconds: float = Field(default=0.5, ge=0)
     absence_seconds: float = Field(default=1, gt=0)
     cooldown_seconds: float = Field(default=60, ge=60)
     repeat_while_present: bool = False
-    preview: bool = False
+    # Ventana «Detecciones YOLO» con la cámara, las detecciones y la zona en verde.
+    preview: bool = True
+    # Resolución pedida a la cámara (ancho, alto); usa la más parecida que tenga.
+    capture_size: tuple[int, int] | None = (640, 640)
+    # Volteo con los códigos de OpenCV: 1 horizontal, 0 vertical, -1 ambos; null, sin volteo.
+    flip: Literal[-1, 0, 1] | None = 1
+    # Zona de detección (x1, y1, x2, y2) en píxeles de la imagen: solo se detecta dentro (ROI).
+    # null detecta en toda la imagen.
+    zone: tuple[int, int, int, int] | None = (150, 0, 450, 640)
     labels: dict[str, str]
 
 

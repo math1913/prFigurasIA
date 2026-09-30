@@ -353,6 +353,76 @@ def test_find_admira_launcher(tmp_path):
     assert find_launcher(str(tmp_path / "otro.lnk")) is None
 
 
+def test_detection_zone_is_clamped_to_the_image():
+    import numpy as np
+    from display_app.figures import crop
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    assert crop(frame, None) == (0, 0, 640, 480)
+    assert crop(frame, (150, 0, 450, 640)) == (150, 0, 450, 480)
+    assert crop(frame, (700, 0, 800, 100)) == (0, 0, 640, 480)  # Fuera de la imagen: toda.
+
+
+def test_figure_detector_works_like_the_old_script(settings, monkeypatch):
+    import sys
+    import types
+    import numpy as np
+    from display_app import figures
+    stop = threading.Event()
+    seen, drawn, shown, flipped, requested = [], [], [], [], []
+
+    class Capture:
+        reads = 0
+        def __init__(self, camera): pass
+        def isOpened(self): return True
+        def set(self, prop, value): requested.append((prop, value))
+        def read(self):
+            Capture.reads += 1
+            if Capture.reads == 2:
+                stop.set()
+            frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            frame[:, :320] = 1  # Mitad izquierda marcada: al voltear pasa a la derecha.
+            return True, frame
+        def release(self): pass
+
+    class Box:
+        def __init__(self, confidence): self.cls, self.conf = [0], [confidence]
+
+    class Result:
+        names = {0: "Joker"}
+        def __init__(self, image, confidence): self.image, self.boxes = image, [Box(confidence)]
+        def plot(self): return self.image
+
+    confidences = iter([0.7, 0.95])  # Una por debajo de 0.9 (solo se ve) y otra que activa el vídeo.
+
+    class Model:
+        def __init__(self, path): pass
+        def predict(self, image, conf, **options):
+            seen.append((image.shape, int(image[0, 0, 0]), int(image[0, -1, 0]), conf))
+            return [Result(image, next(confidences))]
+
+    def flip(frame, code):
+        flipped.append(code)
+        return frame[:, ::-1]
+
+    cv2 = types.SimpleNamespace(
+        VideoCapture=Capture, CAP_PROP_FRAME_WIDTH=3, CAP_PROP_FRAME_HEIGHT=4, flip=flip,
+        rectangle=lambda image, a, b, color, width: drawn.append((a, b, color)),
+        imshow=lambda name, image: shown.append((name, image.shape)), waitKey=lambda delay: -1,
+        destroyAllWindows=lambda: None)
+    monkeypatch.setitem(sys.modules, "cv2", cv2)
+    monkeypatch.setitem(sys.modules, "ultralytics", types.SimpleNamespace(YOLO=Model))
+    settings.figures.stable_seconds = 0
+    state = DisplayState(settings)
+    figures.run_figures(state, stop)
+    assert requested == [(3, 640), (4, 640)]  # La cámara se pide a 640x640.
+    assert flipped == [1, 1]                  # Volteo horizontal.
+    # Solo se detecta en la zona x 150-450 de la imagen volteada, desde 0.6 de confianza.
+    assert seen == [((480, 300, 3), 0, 1, 0.6)] * 2
+    assert drawn == [((150, 0), (450, 480), (0, 255, 0))] * 2
+    assert shown == [("Detecciones YOLO", (480, 640, 3))] * 2
+    assert state.snapshot("figuras")["key"] == "J"  # Solo la de 0.95 activó el vídeo.
+
+
 def test_find_browser(tmp_path):
     from display_app.audio import find_browser
     browser = tmp_path / "chrome.exe"

@@ -138,7 +138,7 @@ Los vídeos actuales son H.264 de 8 bits, lo que decodifica ese hardware. Si alg
 
 ### Figuras
 
-Se usa `yoloFiguritasv2.pt`, cámara `0` y confianza mínima `0.8`. Todo es configurable en `figures`. `labels` incluye los nombres de clases usados en los modelos v2 y v3, manteniendo los códigos anteriores:
+Se usa `yoloFiguritasv2.pt`, cámara `0` y confianza mínima `0.9` para activar el vídeo, como el script antiguo. Todo es configurable en `figures`. `labels` incluye los nombres de clases usados en los modelos v2 y v3, manteniendo los códigos anteriores:
 
 | Código | Figura |
 | --- | --- |
@@ -157,7 +157,7 @@ La detección debe mantenerse `stable_seconds` (0.5 segundos) para activarse. Si
 
 Además, `figures.cooldown_seconds` establece **un mínimo de 60 segundos entre activaciones de la misma figura**. Se cuenta desde su última activación aceptada: las detecciones descartadas no reinician el contador. Se conserva aunque la figura desaparezca, cambie por otra o se reconecte la cámara. Una figura diferente puede activarse sin esperar el margen de la anterior. Este filtro solo afecta a la cámara.
 
-`repeat_while_present: true` permite repetir al terminar si sigue presente, respetando también `cooldown_seconds`. Con el valor por defecto `false`, cumplir el minuto no provoca por sí solo una repetición: se conserva la necesidad de retirar y volver a mostrar la figura. `preview: true` abre la vista de detección de OpenCV; Q detiene únicamente el detector. `enabled: false` desactiva la cámara. Las desconexiones de cámara se reintentan sin detener NFC ni las pantallas. El contador se reinicia al cerrar y volver a abrir la aplicación.
+`repeat_while_present: true` permite repetir al terminar si sigue presente, respetando también `cooldown_seconds`. Con el valor por defecto `false`, cumplir el minuto no provoca por sí solo una repetición: se conserva la necesidad de retirar y volver a mostrar la figura. Como el script antiguo, al arrancar se abre la ventana «Detecciones YOLO» en el PC (`preview: true`): la imagen de la cámara con las detecciones y la zona de detección recuadrada en verde, para volver a colocar la cámara si se mueve. Admira queda por encima. Q cierra la ventana; a diferencia del script antiguo, la detección sigue. Solo se detecta dentro de la zona `zone` (`[150, 0, 450, 640]`, en píxeles de la imagen), con la cámara pedida a 640 × 640 (`capture_size`) y la imagen volteada en horizontal (`flip: 1`). `zone: null` detecta en toda la imagen y `flip: null` no la voltea. La ventana muestra las detecciones desde `display_confidence` (0.6) y solo activan el vídeo las que llegan a `confidence` (0.9), los mismos umbrales que antes. `enabled: false` desactiva la cámara. Las desconexiones de cámara se reintentan sin detener NFC ni las pantallas. El contador se reinicia al cerrar y volver a abrir la aplicación.
 
 ### Códigos de barras
 
