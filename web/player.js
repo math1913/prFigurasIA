@@ -37,6 +37,7 @@ var fadeHalf = 0;
 var revealed = true;
 var volumeTimer = null;
 var earlyTimer = null;
+var pausedBase = null;
 
 function now() {
   return typeof performance !== "undefined" && performance.now ? performance.now() : new Date().getTime();
@@ -123,9 +124,19 @@ function target(video) {
 }
 
 // Dónde empieza: donde va el servidor si pantalla y audio van a la par; si no, donde iba el
-// evento (una recarga lo retoma) y la base desde el principio.
+// evento (una recarga lo retoma). En NFC la base conserva el punto interrumpido.
 function startAt(video, state) {
+  if (channel === "nfc" && state.mode === "base" && !paired() && pausedBase &&
+      pausedBase.session === latest.session && pausedBase.src === video.contentSrc) return pausedBase.position;
   if (paired() && matches(video)) return target(video);
+  if (channel === "nfc" && state.mode === "base") {
+    var seconds = state.elapsed_seconds || 0;
+    if (paired()) {
+      if (typeof state.resumed_at === "number") seconds += (now() - state.resumed_at) / 1000;
+      seconds -= (role === "audio" ? latest.audio_delay_ms || 0 : 0) / 1000;
+    }
+    return video.duration > 0 ? ((seconds % video.duration) + video.duration) % video.duration : Math.max(0, seconds);
+  }
   return state.mode === "event" && state.elapsed_seconds > 0.5 ? state.elapsed_seconds : 0;
 }
 
@@ -189,6 +200,10 @@ function reveal(step) {
 // Cambia lo que se ve. Con fade_ms, el vídeo que sale se funde y el que entra aparece cuando
 // ya se mueve; con 0, el cambio es inmediato, igual que sin fundido.
 function present(content, state, fallback) {
+  if (channel === "nfc" && state.mode === "event" && shown && shown.mode === "base" && activeVideo &&
+      activeVideo.contentMode === "base") {
+    pausedBase = {src: activeVideo.contentSrc, position: activeVideo.currentTime, session: shown.session};
+  }
   var ms = fadeLength();
   // Se anota ya lo que va a verse: durante el fundido siguen llegando instantáneas, y la base
   // que se acaba de pedir no debe volver a pedirse a mitad del relevo.
@@ -280,11 +295,12 @@ function render(content, state, fallback) {
   video.addEventListener("loadedmetadata", function () {
     if (version !== renderVersion) return;
     var position = startAt(video, state);
+    if (state.mode === "base") pausedBase = null;
     if (state.mode === "event" && isFinite(video.duration) && position >= video.duration) {
       finish(state.event_id);
       return;
     }
-    if (position > 0.25) video.currentTime = position;
+    if (position > 0) video.currentTime = position;
     start(video);
     if (state.mode === "event") fadeBeforeEnd(video, version, state.event_id);
   });
@@ -378,7 +394,8 @@ function finish(id) {
   finishedEvent = id;
   pendingCompletion = id;
   // Vuelve a la base incluso si se pierde la conexión al finalizar el vídeo.
-  present(latest.base, {mode: "base"}, latest.fallback_base);
+  present(latest.base, {mode: "base", elapsed_seconds: latest.base_elapsed_seconds || 0,
+                       resumed_at: now()}, latest.fallback_base);
   sendCompletion(function (error) {
     if (error) connection.hidden = false;
   });

@@ -50,6 +50,8 @@ No hace falta activar el entorno virtual. El desarrollo y las pruebas web se han
 
 Muestra cada pantalla a pantalla completa en su monitor con el software de pantallas; para una prueba rápida en un navegador, usa F11. Las páginas necesitan el servidor en ejecución; no se abren directamente como archivos. Detén la aplicación con Ctrl+C.
 
+En `/nfc`, las canciones interrumpen el contenido base y, al terminar, este continúa desde el punto interrumpido. Si se encadenan varias canciones, se conserva ese mismo punto hasta volver a la base, también para el sonido del PC.
+
 `main.py` escucha en `127.0.0.1:8002`: solo responde a `localhost`, ni siquiera a la IP del propio PC. Puedes cambiar el puerto con `--port 8003`. Para acceder desde la red local, arranca con `--host 0.0.0.0`, como hace `iniciar_bigbang.bat`; no hay autenticación para ese modo. Usa una sola instancia: varias instancias competirían por la cámara y los lectores.
 
 ### Arranque automático
@@ -87,7 +89,7 @@ En el panel principal aparecen botones para simular figuras, códigos de barras,
 
 ## Añadir tus vídeos
 
-La base NFC es `media/pantalla/bigBangBase.mp4`: la intro original (22,53 s), seguida de `setBigBang.mp4` durante 66 s, y vuelta a la intro en bucle. El set ajusta su movimiento a 64 s, con el fundido de entrada sobre la imagen en movimiento, y sostiene la imagen final 2 s para el fundido de salida. Su sonido original se sustituye por tres repeticiones de la canción de la intro, ajustadas a 22 s cada una sin cambiar el tono. El ciclo completo dura aproximadamente 88,53 s. Al activar un NFC se interrumpe esta base; al terminar la canción del objeto, vuelve a empezar la intro.
+La base NFC es `media/pantalla/bigBangBase.mp4`: la intro original (22,53 s), seguida de `setBigBang.mp4` durante 66 s, y vuelta a la intro en bucle. El set ajusta su movimiento a 64 s, con el fundido de entrada sobre la imagen en movimiento, y sostiene la imagen final 2 s para el fundido de salida. Su sonido original se sustituye por tres repeticiones de la canción de la intro, ajustadas a 22 s cada una sin cambiar el tono. El ciclo completo dura aproximadamente 88,53 s. Al activar un NFC se interrumpe esta base; al terminar la canción del objeto, continúa desde el punto interrumpido.
 
 Para regenerar el montaje conservando ambos originales, ejecuta `python scripts/build_nfc_base.py --ffmpeg RUTA_A_FFMPEG`. FFmpeg solo es necesario para preparar el archivo, no para reproducirlo. Después ejecuta `preparar_media.bat` para actualizar el ZIP y el manifiesto. Los archivos deben quedar directamente en `media/pantalla/`, `media/NFC/`, etc., sin otra carpeta `media/` intermedia.
 

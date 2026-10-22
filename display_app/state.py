@@ -22,12 +22,18 @@ class DisplayState:
         self.weather_code = None
         # Desde cuándo suena la base: pantalla y audio del PC la siguen desde el mismo punto.
         self.base_since = {name: clock() for name in settings.channels}
+        self.base_paused_at = {name: None for name in settings.channels}
         self.audio_seen = {}
 
     def _to_base(self, channel):
         self.active[channel] = None
         self.revisions[channel] += 1
-        self.base_since[channel] = self.clock()
+        paused = self.base_paused_at[channel]
+        if channel == "nfc" and paused is not None:
+            self.base_since[channel] += self.clock() - paused
+        else:
+            self.base_since[channel] = self.clock()
+        self.base_paused_at[channel] = None
 
     def _expire(self, channel):
         event = self.active[channel]
@@ -43,6 +49,8 @@ class DisplayState:
             active = self.active[channel]
             if not restart and active and active["key"] == key:
                 return False  # Sigue sonando: no vuelve al principio.
+            if channel == "nfc" and active is None:
+                self.base_paused_at[channel] = self.clock()
             self.revisions[channel] += 1
             video = config.events[key]
             seconds = config.max_event_seconds if video.src else config.placeholder_seconds
@@ -74,8 +82,14 @@ class DisplayState:
             if code is not None and code not in self.settings.weather.videos:
                 raise ValueError("Código meteorológico desconocido")
             if code != self.weather_code:
+                previous = {channel: self.base_video(channel).src
+                            for channel in self.settings.weather.base_channels}
                 self.weather_code = code
                 for channel in self.settings.weather.base_channels:
+                    if channel == "nfc" and previous[channel] != self.base_video(channel).src:
+                        self.base_since[channel] = self.clock()
+                        if self.active[channel] is not None:
+                            self.base_paused_at[channel] = self.clock()
                     if self.active[channel] is None:
                         self.revisions[channel] += 1
                         self.base_since[channel] = self.clock()
@@ -98,6 +112,9 @@ class DisplayState:
                 "event_id": active["id"] if active else None,
                 # Tiempo desde que empezó lo que toca: el evento o, en la base, su bucle.
                 "elapsed_seconds": self.clock() - (active["started"] if active else self.base_since[channel]),
+                "base_elapsed_seconds": ((self.base_paused_at[channel]
+                                          if self.base_paused_at[channel] is not None else self.clock())
+                                         - self.base_since[channel]),
                 "remaining_ms": max(0, (active["deadline"] - self.clock()) * 1000) if active else 0,
                 "content": (config.events[active["key"]] if active else self.base_video(channel)).model_dump(),
                 "base": self.base_video(channel).model_dump(),

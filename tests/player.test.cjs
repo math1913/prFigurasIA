@@ -436,6 +436,61 @@ test("player.js y overlay.js siguen en ES5 para el Chromium antiguo del reproduc
   }
 });
 
+test("NFC retoma el punto exacto tras varias canciones, incluso sin conexión", async () => {
+  const env = harness(snapshot(), {channel: "nfc"}); await flush();
+  env.video().currentTime = 6.125;
+  env.state = snapshot({revision: 1, mode: "event", event_id: "one", content: {...base, src: "/media/one.mp4"}});
+  await env.poll();
+  env.state = snapshot({...env.state, revision: 2, event_id: "two", content: {...base, src: "/media/two.mp4"}});
+  await env.poll();
+  env.offline = true;
+  env.video().emit("ended"); await flush();
+  env.video().emit("loadedmetadata");
+  assert.equal(env.video().currentTime, 6.125);
+});
+
+test("NFC conserva también posiciones menores de un cuarto de segundo", async () => {
+  const env = harness(snapshot(), {channel: "nfc"}); await flush();
+  env.video().currentTime = 0.125;
+  env.state = snapshot({revision: 1, mode: "event", event_id: "one"});
+  await env.poll();
+  env.video().emit("error"); await flush();
+  env.video().emit("loadedmetadata");
+  assert.equal(env.video().currentTime, 0.125);
+});
+
+test("NFC retoma el reloj de base en pantalla y audio con fundido y al recargar", async () => {
+  for (const role of ["screen", "audio"]) {
+    const options = {channel: "nfc", role};
+    const env = harness(snapshot({audio_on_pc: true, fade_ms: 600}), options); await flush();
+    env.state = snapshot({audio_on_pc: true, audio_delay_ms: 200, fade_ms: 600, revision: 1,
+      mode: "event", event_id: "one", base_elapsed_seconds: 8, content: {...base, src: "/media/one.mp4"}});
+    await env.poll();
+    env.timer(350).fn();
+    env.video().emit("ended"); await flush();
+    env.now = 350;
+    env.timer(350).fn();
+    env.video().emit("loadedmetadata");
+    assert.ok(Math.abs(env.video().currentTime - (role === "audio" ? 8.15 : 8.35)) < 1e-9);
+    env.state = snapshot({audio_on_pc: true, audio_delay_ms: 200, revision: 2, elapsed_seconds: 8.35});
+    await env.poll();
+    const reloaded = harness(env.state, options); await flush();
+    reloaded.video().emit("loadedmetadata");
+    assert.ok(Math.abs(reloaded.video().currentTime - (role === "audio" ? 8.15 : 8.35)) < 1e-9);
+  }
+});
+
+test("NFC empieza desde cero si la base cambió durante la canción", async () => {
+  const env = harness(snapshot(), {channel: "nfc"}); await flush();
+  env.video().currentTime = 7;
+  env.state = snapshot({revision: 1, mode: "event", event_id: "one", base: {...base, src: "/media/new.mp4"}});
+  await env.poll();
+  env.video().emit("ended"); await flush();
+  env.video().emit("loadedmetadata");
+  assert.equal(env.video().src, "/media/new.mp4");
+  assert.equal(env.video().currentTime, 0);
+});
+
 test("un reinicio del servidor actualiza la pantalla aunque coincida la revisión", async () => {
   const env = harness(snapshot()); await flush();
   env.state = snapshot({session: "restarted", content: {...base, src: "/media/new-base.mp4"}});

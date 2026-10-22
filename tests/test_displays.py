@@ -67,6 +67,58 @@ def test_unconfigured_video_returns_to_base(settings, clock):
     assert state.is_idle("nfc")
 
 
+def test_nfc_base_resumes_after_chained_events(settings, clock):
+    state = DisplayState(settings, clock)
+    clock.advance(7)
+    state.trigger("nfc", "Prince")
+    clock.advance(20)
+    state.trigger("nfc", "Beatles")
+    clock.advance(30)
+    event = state.snapshot("nfc")
+    assert event["base_elapsed_seconds"] == 7
+    assert state.complete("nfc", event["event_id"])
+    assert state.snapshot("nfc")["elapsed_seconds"] == 7
+    clock.advance(3)
+    state.trigger("nfc", "Prince")
+    state.complete("nfc", state.snapshot("nfc")["event_id"])
+    assert state.snapshot("nfc")["elapsed_seconds"] == 10
+
+
+def test_nfc_base_resumes_after_watchdog(settings, clock):
+    state = DisplayState(settings, clock)
+    clock.advance(9)
+    state.trigger("nfc", "Prince")
+    clock.advance(settings.channels["nfc"].max_event_seconds + 1)
+    assert state.snapshot("nfc")["mode"] == "base"
+    assert state.snapshot("nfc")["elapsed_seconds"] == 9
+
+
+def test_figures_base_still_restarts_after_event(settings, clock):
+    state = DisplayState(settings, clock)
+    clock.advance(7)
+    state.trigger("figuras", "A")
+    clock.advance(3)
+    state.complete("figuras", state.snapshot("figuras")["event_id"])
+    assert state.snapshot("figuras")["elapsed_seconds"] == 0
+
+
+def test_nfc_new_weather_base_starts_from_zero(settings, clock):
+    settings.weather.base_channels = ["nfc"]
+    settings.weather.videos["DD"].src = "/media/day.mp4"
+    state = DisplayState(settings, clock)
+    clock.advance(7)
+    state.trigger("nfc", "Prince")
+    clock.advance(3)
+    state.set_weather("DD")
+    clock.advance(5)
+    event = state.snapshot("nfc")
+    assert event["base_elapsed_seconds"] == 0
+    state.complete("nfc", event["event_id"])
+    resumed = state.snapshot("nfc")
+    assert resumed["elapsed_seconds"] == 0
+    assert resumed["content"]["src"] == "/media/day.mp4"
+
+
 def test_same_action_can_replay_after_completion(settings):
     state = DisplayState(settings)
     state.trigger("nfc", "Prince")
@@ -153,7 +205,7 @@ def test_weather_failure_uses_backup_and_recovers(settings, monkeypatch):
             return len(seen) == 3
         def wait(self, seconds):
             seen.append(state.snapshot("figuras")["content"]["src"])
-            assert state.snapshot("nfc")["content"]["src"] == "/media/pantalla/bigBangIntro.mp4"
+            assert state.snapshot("nfc")["content"]["src"] == settings.channels["nfc"].base.src
             clock.advance(settings.weather.poll_seconds)
     run_weather(state, Stop())
     assert seen == ["/media/ventana/lluvioso.mp4", "/media/ventana/despejado.mp4", "/media/ventana/lluvioso.mp4"]
@@ -260,7 +312,8 @@ def test_base_clock_and_screen_settings(settings, clock):
     clock.advance(7)
     base = state.snapshot("nfc")
     assert base["elapsed_seconds"] == 7 and base["fit"] == "cover"
-    assert base["audio_on_pc"] and not state.snapshot("figuras")["audio_on_pc"]
+    assert base["audio_on_pc"] == settings.channels["nfc"].audio_on_pc
+    assert not state.snapshot("figuras")["audio_on_pc"]
     # La tele funde entre canciones; la pantalla de figuras cambia de golpe, como siempre.
     assert base["fade_ms"] == 600 and state.snapshot("figuras")["fade_ms"] == 0
     state.trigger("nfc", "Prince")
@@ -269,7 +322,7 @@ def test_base_clock_and_screen_settings(settings, clock):
     assert event["elapsed_seconds"] == 3
     state.complete("nfc", event["event_id"])
     clock.advance(2)
-    assert state.snapshot("nfc")["elapsed_seconds"] == 2  # La base vuelve a empezar al terminar.
+    assert state.snapshot("nfc")["elapsed_seconds"] == 9  # Retoma los 7 s previos y avanza otros 2.
 
 
 def test_audio_page_and_demo_song_without_restart(settings):
@@ -289,6 +342,7 @@ def test_audio_page_and_demo_song_without_restart(settings):
 
 
 def test_audio_browser_reopens_a_page_that_stops_polling(settings, monkeypatch, tmp_path):
+    settings.channels["nfc"].audio_on_pc = True
     from display_app import audio
     clock = Clock()
     state = DisplayState(settings, clock)
