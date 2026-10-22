@@ -35,7 +35,7 @@ Si todavía no tienes clave, omite la primera línea: la ventana utilizará `des
 
 Para probar primero sin dispositivos ni API, usa `main.py --demo`. Abre el panel, las dos pantallas y pulsa los botones de prueba; los botones del clima permiten alternar lluvia y despejado. Detén la demo con Ctrl+C antes de arrancar el modo real. En el montaje comprueba una figura, un código de barras y la retirada de un objeto NFC; verifica el retorno a sus bases y que otra acción interrumpe el vídeo del mismo canal.
 
-El sonido sigue desactivado por defecto (`muted: true`). Para oír las canciones, añade `"muted": false` a los vídeos NFC que quieras escuchar en `config.json` y reinicia. El software de pantallas debe permitir la reproducción automática con sonido; si no, los vídeos se reproducen sin sonido (consulta «Modo kiosco»).
+Los vídeos NFC tienen sonido (`muted: false`) y lo reproducen en la propia pantalla (`audio_on_pc: false`). El navegador oculto de audio está desactivado (`audio.enabled: false`). El software de pantallas debe permitir la reproducción automática con sonido; si no, los vídeos se reproducen sin sonido (consulta «Modo kiosco»).
 
 No hace falta activar el entorno virtual. El desarrollo y las pruebas web se han realizado con Python 3.13.
 
@@ -46,7 +46,7 @@ No hace falta activar el entorno virtual. El desarrollo y las pruebas web se han
 | http://localhost:8002/nfc | Pantalla de NFC |
 | http://localhost:8002/overlay | Indicadores NFC con fondo transparente, superpuestos a una pantalla |
 | http://localhost:8002/objetos | API de presencia NFC, conserva los nombres y el puerto original |
-| http://localhost:8002/audio/nfc | Solo el sonido de NFC, para el PC (la aplicación la abre sola, ver «Sonido desde el PC») |
+| http://localhost:8002/audio/nfc | Sonido separado de NFC, si se activa el modo «Sonido desde el PC» |
 
 Muestra cada pantalla a pantalla completa en su monitor con el software de pantallas; para una prueba rápida en un navegador, usa F11. Las páginas necesitan el servidor en ejecución; no se abren directamente como archivos. Detén la aplicación con Ctrl+C.
 
@@ -86,6 +86,10 @@ Si tienes permisos de administrador, también sirve una tarea del Programador de
 En el panel principal aparecen botones para simular figuras, códigos de barras, objetos NFC y estados del clima. Abre las pantallas y pulsa esos botones. `--demo` desactiva la cámara, el puerto serie, PC/SC y las consultas reales a OpenWeather. Los botones y la API de simulación solo funcionan con este argumento.
 
 ## Añadir tus vídeos
+
+La base NFC es `media/pantalla/bigBangBase.mp4`: la intro original (22,53 s), seguida de `setBigBang.mp4` durante 66 s, y vuelta a la intro en bucle. El set ajusta su movimiento a 64 s, con el fundido de entrada sobre la imagen en movimiento, y sostiene la imagen final 2 s para el fundido de salida. Su sonido original se sustituye por tres repeticiones de la canción de la intro, ajustadas a 22 s cada una sin cambiar el tono. El ciclo completo dura aproximadamente 88,53 s. Al activar un NFC se interrumpe esta base; al terminar la canción del objeto, vuelve a empezar la intro.
+
+Para regenerar el montaje conservando ambos originales, ejecuta `python scripts/build_nfc_base.py --ffmpeg RUTA_A_FFMPEG`. FFmpeg solo es necesario para preparar el archivo, no para reproducirlo. Después ejecuta `preparar_media.bat` para actualizar el ZIP y el manifiesto. Los archivos deben quedar directamente en `media/pantalla/`, `media/NFC/`, etc., sin otra carpeta `media/` intermedia.
 
 Edita `config.json` y reinicia el servidor. Todas las rutas parten de la carpeta del proyecto, aunque lo arranques desde otro directorio. `--config ruta\config.json` permite usar otro archivo de configuración; los modelos, alias y medios siguen resolviéndose desde la carpeta del proyecto.
 
@@ -191,7 +195,7 @@ Los logos están en `web/img/` y el `id` de cada indicador de `web/overlay.html`
 
 #### Sonido desde el PC
 
-Con `channels.nfc.audio_on_pc: true`, como ahora, la pantalla de NFC se reproduce siempre en silencio y el sonido sale por los altavoces del PC que ejecuta la aplicación. La tele no necesita altavoz.
+Actualmente `channels.nfc.audio_on_pc` y `audio.enabled` están a `false`: el sonido sale de la pantalla que abras y no se abre ningún navegador oculto. Para separar el sonido y enviarlo a los altavoces del PC, activa ambos valores. En ese modo la pantalla NFC se reproduce en silencio y la tele no necesita altavoz.
 
 La aplicación abre `/audio/nfc` en un Chrome sin ventana, o en Edge si no hay Chrome, con la reproducción automática con sonido permitida. Lo vuelve a abrir si se cierra o deja de responder, y lo cierra al terminar, aunque la aplicación se cierre de golpe. El panel muestra su estado en «Sonido · PC». `audio.browser` permite indicar la ruta del navegador y `audio.enabled: false` evita abrirlo, por ejemplo si prefieres abrir `/audio/nfc` en otro equipo.
 

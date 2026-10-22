@@ -117,9 +117,19 @@
       "sha256": "4c3232f256633ea7985771b6706e8e0f8a0dc9aed8de15f3b2ad045957026989"
     },
     {
+      "path": "pantalla/bigBangBase.mp4",
+      "size": 67544586,
+      "sha256": "fe9b729b6a0ed5ea71ab510f18b9c02ac0bd569b447bbc8f8aea0fb2627b78be"
+    },
+    {
       "path": "pantalla/bigBangIntro.mp4",
       "size": 7186474,
       "sha256": "9706953d91375bd44bb855271cb65c7c0c083ba859d47071ed523fd0a1f4d1bb"
+    },
+    {
+      "path": "pantalla/setBigBang.mp4",
+      "size": 28125208,
+      "sha256": "d97f68a7450c0850934c0005cd9559f496fadeb4a4521b2b8eb355a275f6e8b8"
     },
     {
       "path": "ventana/despejado.mp4",
